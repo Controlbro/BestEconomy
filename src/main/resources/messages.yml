@@ -1,0 +1,62 @@
+# =========================================================
+# BestEconomy Messages
+# Supports:
+#  - Legacy colors (&a, &b, etc.)
+#  - HEX colors (#FFAA00)
+#
+# COLOR CHEAT SHEET:
+#
+# &0 Black        &8 Dark Gray
+# &1 Dark Blue    &9 Blue
+# &2 Dark Green   &a Green
+# &3 Dark Aqua    &b Aqua
+# &4 Dark Red     &c Red
+# &5 Dark Purple  &d Light Purple
+# &6 Gold         &e Yellow
+# &7 Gray         &f White
+#
+# &k Obfuscated
+# &l Bold
+# &m Strikethrough
+# &n Underline
+# &o Italic
+# &r Reset
+# =========================================================
+
+prefix: "#FFAA00&lBestEconomy &8» &f"
+
+no-permission: "&cYou do not have permission."
+player-not-found: "&cPlayer not found."
+cannot-pay-self: "&cYou cannot pay yourself."
+invalid-amount: "&cInvalid amount."
+insufficient-funds: "&cYou do not have enough money."
+max-money-reached: "&cThat player has reached the maximum balance."
+min-money-reached: "&cYou cannot go below the minimum balance."
+reload-complete: "&aConfiguration reloaded."
+usage-eco: "&eUsage: /{currency} <give|take|reset|pay|balance> ..."
+usage-pay: "&eUsage: /pay <player> <amount>"
+usage-balance: "&eUsage: /balance [player]"
+usage-baltop: "&eUsage: /baltop [page]"
+
+balance:
+  self: "&7Your balance: &a{symbol}{amount}"
+  other: "&7{player}'s balance: &a{symbol}{amount}"
+
+eco:
+  give: "&aYou gave {symbol}{amount} to {player}."
+  take: "&cYou took {symbol}{amount} from {player}."
+  reset: "&eYou reset {player}'s balance."
+  received: "&aYou received {symbol}{amount}."
+
+pay:
+  sent: "&aYou paid {player} {symbol}{amount}."
+  received: "&aYou received {symbol}{amount} from {player}."
+
+baltop:
+  header: "#00FFCC&lTop Balances &7(Page {page}/{maxpage})"
+  format: "&e#{position} &f{player} &7- &a{symbol}{amount}"
+  no-data: "&cNo data found."
+
+currency:
+  not-found: "&cCurrency not found."
+  switched: "&aSwitched to currency {currency}."

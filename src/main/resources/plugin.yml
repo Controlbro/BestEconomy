@@ -1,0 +1,51 @@
+name: BestEconomy
+main: com.controlbro.besteconomy.BestEconomyPlugin
+version: 1.0.0
+api-version: 1.21
+author: Controlbro
+softdepend: [Vault]
+
+commands:
+  eco:
+    description: Economy command for default currency.
+    aliases: [economy]
+    usage: /eco
+  balance:
+    description: Check balance.
+    aliases: [bal, money]
+    usage: /balance [player]
+  baltop:
+    description: View top balances.
+    usage: /baltop [page]
+  pay:
+    description: Pay another player.
+    usage: /pay <player> <amount>
+  besteconomy:
+    description: BestEconomy admin command.
+    usage: /besteconomy reload
+
+permissions:
+  besteconomy.eco.give:
+    description: Allows giving money.
+    default: op
+  besteconomy.eco.take:
+    description: Allows taking money.
+    default: op
+  besteconomy.eco.reset:
+    description: Allows resetting money.
+    default: op
+  besteconomy.balance:
+    description: Allows checking own balance.
+    default: true
+  besteconomy.balance.others:
+    description: Allows checking others' balances.
+    default: op
+  besteconomy.baltop:
+    description: Allows viewing baltop.
+    default: true
+  besteconomy.pay:
+    description: Allows paying other players.
+    default: true
+  besteconomy.reload:
+    description: Allows reloading the plugin.
+    default: op

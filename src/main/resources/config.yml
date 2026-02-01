@@ -1,0 +1,20 @@
+starting-balance: 0
+currency-symbol: '$'
+max-money: 10000000000000
+min-money: -10000
+economy-log-enabled: false
+auto-save-interval-seconds: 300
+
+currencies:
+  default:
+    symbol: '$'
+    command-alias: eco
+    starting-balance: 0
+    max-money: 10000000000000
+    min-money: -10000
+  tokens:
+    symbol: '✦'
+    command-alias: token
+    starting-balance: 0
+    max-money: 1000000
+    min-money: 0
