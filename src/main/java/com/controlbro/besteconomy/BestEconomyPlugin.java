@@ -14,6 +14,7 @@ import com.controlbro.besteconomy.data.EconomyManager;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
 import com.controlbro.besteconomy.message.MessageManager;
 import com.controlbro.besteconomy.vault.VaultEconomyProvider;
+import java.math.BigDecimal;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
@@ -29,6 +30,7 @@ public class BestEconomyPlugin extends JavaPlugin {
     private CurrencyCommandHandler commandHandler;
     private CurrencyCommandRegistrar commandRegistrar;
     private BukkitTask autosaveTask;
+    private BukkitTask shardRewardTask;
 
     @Override
     public void onEnable() {
@@ -44,12 +46,16 @@ public class BestEconomyPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
         hookVault();
         startAutoSave();
+        startShardRewardTask();
     }
 
     @Override
     public void onDisable() {
         if (autosaveTask != null) {
             autosaveTask.cancel();
+        }
+        if (shardRewardTask != null) {
+            shardRewardTask.cancel();
         }
         economyManager.save();
         commandRegistrar.unregisterAll();
@@ -65,6 +71,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         commandRegistrar.registerAll();
         Bukkit.getOnlinePlayers().forEach(player -> economyManager.ensurePlayer(player.getUniqueId()));
         startAutoSave();
+        startShardRewardTask();
     }
 
     private void registerCommands() {
@@ -114,6 +121,30 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
         autosaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this,
             economyManager::save, intervalSeconds * 20L, intervalSeconds * 20L);
+    }
+
+
+    private void startShardRewardTask() {
+        if (shardRewardTask != null) {
+            shardRewardTask.cancel();
+        }
+        if (!getConfig().getBoolean("online-shard-reward.enabled", true)) {
+            return;
+        }
+        Currency shardCurrency = currencyManager.getDefaultCurrency();
+        if (shardCurrency == null) {
+            getLogger().warning("Unable to start online Shards reward task because the default currency is missing.");
+            return;
+        }
+        long intervalSeconds = getConfig().getLong("online-shard-reward.interval-seconds", 60);
+        if (intervalSeconds <= 0) {
+            return;
+        }
+        BigDecimal rewardAmount = new BigDecimal(getConfig().getString("online-shard-reward.amount", "1"));
+        shardRewardTask = Bukkit.getScheduler().runTaskTimer(this, () ->
+            Bukkit.getOnlinePlayers().forEach(player ->
+                economyManager.addBalance(player.getUniqueId(), shardCurrency, rewardAmount)),
+            intervalSeconds * 20L, intervalSeconds * 20L);
     }
 
     private void hookVault() {

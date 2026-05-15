@@ -29,9 +29,9 @@ no-permission: "&cYou do not have permission."
 player-not-found: "&cPlayer not found."
 cannot-pay-self: "&cYou cannot pay yourself."
 invalid-amount: "&cInvalid amount."
-insufficient-funds: "&cYou do not have enough money."
-max-money-reached: "&cThat player has reached the maximum balance."
-min-money-reached: "&cYou cannot go below the minimum balance."
+insufficient-funds: "&cYou do not have enough &5Shards&c."
+max-money-reached: "&cThat player has reached the maximum &5Shards &cbalance."
+min-money-reached: "&cYou cannot go below the minimum &5Shards &cbalance."
 reload-complete: "&aConfiguration reloaded."
 usage-eco: "&eUsage: /{currency} <give|take|reset|pay|balance> ..."
 usage-pay: "&eUsage: /pay <player> <amount>"
@@ -39,24 +39,24 @@ usage-balance: "&eUsage: /balance [player]"
 usage-baltop: "&eUsage: /baltop [page]"
 
 balance:
-  self: "&7Your balance: &a{symbol}{amount}"
-  other: "&7{player}'s balance: &a{symbol}{amount}"
+  self: "&7Your &5Shards &7balance: &5{symbol}&a{amount}"
+  other: "&7{player}'s &5Shards &7balance: &5{symbol}&a{amount}"
 
 eco:
-  give: "&aYou gave {symbol}{amount} to {player}."
-  take: "&cYou took {symbol}{amount} from {player}."
-  reset: "&eYou reset {player}'s balance."
-  received: "&aYou received {symbol}{amount}."
+  give: "&aYou gave &5{symbol}&a{amount} &5Shards &ato {player}."
+  take: "&cYou took &5{symbol}&c{amount} &5Shards &cfrom {player}."
+  reset: "&eYou reset {player}'s &5Shards &ebalance."
+  received: "&aYou received &5{symbol}&a{amount} &5Shards&a."
 
 pay:
-  sent: "&aYou paid {player} {symbol}{amount}."
-  received: "&aYou received {symbol}{amount} from {player}."
+  sent: "&aYou paid {player} &5{symbol}&a{amount} &5Shards&a."
+  received: "&aYou received &5{symbol}&a{amount} &5Shards &afrom {player}."
 
 baltop:
-  header: "#00FFCC&lTop Balances &7(Page {page}/{maxpage})"
-  format: "&e#{position} &f{player} &7- &a{symbol}{amount}"
+  header: "#00FFCC&lTop &5Shards &lBalances &7(Page {page}/{maxpage})"
+  format: "&e#{position} &f{player} &7- &5{symbol}&a{amount}"
   no-data: "&cNo data found."
 
 currency:
   not-found: "&cCurrency not found."
-  switched: "&aSwitched to currency {currency}."
+  switched: "&aSwitched to currency &5{currency}&a."

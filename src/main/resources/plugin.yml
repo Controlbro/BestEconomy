@@ -1,18 +1,18 @@
 name: BestEconomy
 main: com.controlbro.besteconomy.BestEconomyPlugin
 version: 1.0.0
-api-version: 1.21
+api-version: 1.26
 author: Controlbro
 softdepend: [Vault]
 
 commands:
   eco:
-    description: Economy command for default currency.
+    description: Economy command for Shards.
     aliases: [economy]
     usage: /eco
   balance:
     description: Check balance.
-    aliases: [bal, money]
+    aliases: [bal]
     usage: /balance [player]
   baltop:
     description: View top balances.
@@ -26,13 +26,13 @@ commands:
 
 permissions:
   besteconomy.eco.give:
-    description: Allows giving money.
+    description: Allows giving Shards.
     default: op
   besteconomy.eco.take:
-    description: Allows taking money.
+    description: Allows taking Shards.
     default: op
   besteconomy.eco.reset:
-    description: Allows resetting money.
+    description: Allows resetting Shards.
     default: op
   besteconomy.balance:
     description: Allows checking own balance.
