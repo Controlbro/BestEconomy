@@ -1,20 +1,19 @@
 starting-balance: 0
-currency-symbol: '$'
+currency-symbol: '✦'
+default-currency: shards
 max-money: 10000000000000
-min-money: -10000
+min-money: 0
 economy-log-enabled: false
 auto-save-interval-seconds: 300
+online-shard-reward:
+  enabled: true
+  amount: 1
+  interval-seconds: 60
 
 currencies:
-  default:
-    symbol: '$'
-    command-alias: eco
+  Shards:
+    symbol: '✦'
+    command-alias: shards
     starting-balance: 0
     max-money: 10000000000000
-    min-money: -10000
-  tokens:
-    symbol: '✦'
-    command-alias: token
-    starting-balance: 0
-    max-money: 1000000
     min-money: 0
