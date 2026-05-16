@@ -1,0 +1,44 @@
+title: "&8Ores"
+size: 54
+
+items:
+  coal:
+    slot: 10
+    material: COAL
+    name: "&8Coal"
+    lore:
+      - "&7Buy Price: &a$20"
+    price: 20.0
+
+  iron_ingot:
+    slot: 12
+    material: IRON_INGOT
+    name: "&fIron Ingot"
+    lore:
+      - "&7Buy Price: &a$85"
+    price: 85.0
+
+  gold_ingot:
+    slot: 14
+    material: GOLD_INGOT
+    name: "&6Gold Ingot"
+    lore:
+      - "&7Buy Price: &a$240"
+    price: 240.0
+
+  diamond:
+    slot: 16
+    material: DIAMOND
+    name: "&bDiamond"
+    lore:
+      - "&7Buy Price: &a$2000"
+      - "&7Sell Price: &a$2000"
+    price: 2000.0
+
+  emerald:
+    slot: 31
+    material: EMERALD
+    name: "&aEmerald"
+    lore:
+      - "&7Buy Price: &a$700"
+    price: 700.0
