@@ -13,7 +13,14 @@ import com.controlbro.besteconomy.data.DataStore;
 import com.controlbro.besteconomy.data.EconomyManager;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
 import com.controlbro.besteconomy.message.MessageManager;
+import com.controlbro.besteconomy.shop.ShopAccountCommand;
+import com.controlbro.besteconomy.shop.ShopAccountService;
+import com.controlbro.besteconomy.shop.ShopAdminCommand;
+import com.controlbro.besteconomy.shop.ShopDatabaseManager;
+import com.controlbro.besteconomy.shop.ShopPendingCommandService;
+import com.controlbro.besteconomy.shop.ShopTables;
 import com.controlbro.besteconomy.vault.VaultEconomyProvider;
+import java.math.BigDecimal;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
@@ -28,11 +35,17 @@ public class BestEconomyPlugin extends JavaPlugin {
     private MessageManager messageManager;
     private CurrencyCommandHandler commandHandler;
     private CurrencyCommandRegistrar commandRegistrar;
+    private ShopDatabaseManager shopDatabaseManager;
+    private ShopAccountService shopAccountService;
+    private ShopPendingCommandService shopPendingCommandService;
+    private ShopAccountCommand registeredShopAccountCommand;
     private BukkitTask autosaveTask;
+    private BukkitTask shardRewardTask;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        ensureConfigDefaults();
         messageManager = new MessageManager(this);
         currencyManager = new CurrencyManager(this);
         economyManager = new EconomyManager(currencyManager, new DataStore(this));
@@ -44,12 +57,20 @@ public class BestEconomyPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
         hookVault();
         startAutoSave();
+        startShardRewardTask();
+        startWebshopIntegration();
     }
 
     @Override
     public void onDisable() {
         if (autosaveTask != null) {
             autosaveTask.cancel();
+        }
+        if (shardRewardTask != null) {
+            shardRewardTask.cancel();
+        }
+        if (shopPendingCommandService != null) {
+            shopPendingCommandService.stop();
         }
         economyManager.save();
         commandRegistrar.unregisterAll();
@@ -58,6 +79,7 @@ public class BestEconomyPlugin extends JavaPlugin {
 
     public void reloadEverything() {
         reloadConfig();
+        ensureConfigDefaults();
         messageManager.reload();
         currencyManager.reload();
         commandRegistrar.unregisterAll();
@@ -65,6 +87,8 @@ public class BestEconomyPlugin extends JavaPlugin {
         commandRegistrar.registerAll();
         Bukkit.getOnlinePlayers().forEach(player -> economyManager.ensurePlayer(player.getUniqueId()));
         startAutoSave();
+        startShardRewardTask();
+        startWebshopIntegration();
     }
 
     private void registerCommands() {
@@ -104,6 +128,64 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
     }
 
+
+    private void registerShopCommands() {
+        if (shopAccountService == null || shopPendingCommandService == null) {
+            return;
+        }
+        PluginCommand shop = getCommand("shop");
+        if (shop != null) {
+            ShopAccountCommand shopAccountCommand = new ShopAccountCommand(this, shopAccountService, messageManager);
+            shop.setExecutor(shopAccountCommand);
+            shop.setTabCompleter(shopAccountCommand);
+            Bukkit.getPluginManager().registerEvents(shopAccountCommand, this);
+            registeredShopAccountCommand = shopAccountCommand;
+        }
+        PluginCommand shopAdmin = getCommand("shopadmin");
+        if (shopAdmin != null) {
+            ShopAdminCommand shopAdminCommand = new ShopAdminCommand(shopPendingCommandService, messageManager);
+            shopAdmin.setExecutor(shopAdminCommand);
+            shopAdmin.setTabCompleter(shopAdminCommand);
+        }
+    }
+
+    private void startWebshopIntegration() {
+        if (shopPendingCommandService != null) {
+            shopPendingCommandService.stop();
+        }
+        if (registeredShopAccountCommand != null) {
+            HandlerList.unregisterAll(registeredShopAccountCommand);
+            registeredShopAccountCommand = null;
+        }
+        shopDatabaseManager = new ShopDatabaseManager(this);
+        shopAccountService = new ShopAccountService(this, shopDatabaseManager);
+        shopPendingCommandService = new ShopPendingCommandService(this, shopDatabaseManager);
+        registerShopCommands();
+        if (!getConfig().getBoolean("webshop.enabled", true)) {
+            return;
+        }
+        if (!shopDatabaseManager.isEnabled()) {
+            return;
+        }
+        new ShopTables(this, shopDatabaseManager).createAsync(shopPendingCommandService::start);
+    }
+
+    private void ensureConfigDefaults() {
+        getConfig().addDefault("mysql.host", "localhost");
+        getConfig().addDefault("mysql.port", 3306);
+        getConfig().addDefault("mysql.database", "besteconomy");
+        getConfig().addDefault("mysql.username", "CHANGE_THIS_USERNAME");
+        getConfig().addDefault("mysql.password", "CHANGE_THIS_PASSWORD");
+        getConfig().addDefault("mysql.use-ssl", false);
+        getConfig().addDefault("mysql.connection-timeout-ms", 10000);
+        getConfig().addDefault("webshop.enabled", true);
+        getConfig().addDefault("webshop.pending-check-seconds", 60);
+        getConfig().addDefault("webshop.max-commands-per-check", 50);
+        getConfig().addDefault("webshop.api-key", "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET");
+        getConfig().options().copyDefaults(true);
+        saveConfig();
+    }
+
     private void startAutoSave() {
         if (autosaveTask != null) {
             autosaveTask.cancel();
@@ -114,6 +196,30 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
         autosaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this,
             economyManager::save, intervalSeconds * 20L, intervalSeconds * 20L);
+    }
+
+
+    private void startShardRewardTask() {
+        if (shardRewardTask != null) {
+            shardRewardTask.cancel();
+        }
+        if (!getConfig().getBoolean("online-shard-reward.enabled", true)) {
+            return;
+        }
+        Currency shardCurrency = currencyManager.getDefaultCurrency();
+        if (shardCurrency == null) {
+            getLogger().warning("Unable to start online Shards reward task because the default currency is missing.");
+            return;
+        }
+        long intervalSeconds = getConfig().getLong("online-shard-reward.interval-seconds", 60);
+        if (intervalSeconds <= 0) {
+            return;
+        }
+        BigDecimal rewardAmount = new BigDecimal(getConfig().getString("online-shard-reward.amount", "1"));
+        shardRewardTask = Bukkit.getScheduler().runTaskTimer(this, () ->
+            Bukkit.getOnlinePlayers().forEach(player ->
+                economyManager.addBalance(player.getUniqueId(), shardCurrency, rewardAmount)),
+            intervalSeconds * 20L, intervalSeconds * 20L);
     }
 
     private void hookVault() {
