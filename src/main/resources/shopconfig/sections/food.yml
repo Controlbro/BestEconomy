@@ -1,0 +1,35 @@
+title: "&8Food"
+size: 54
+
+items:
+  bread:
+    slot: 10
+    material: BREAD
+    name: "&6Bread"
+    lore:
+      - "&7Buy Price: &a$25"
+    price: 25.0
+
+  cooked_beef:
+    slot: 12
+    material: COOKED_BEEF
+    name: "&cSteak"
+    lore:
+      - "&7Buy Price: &a$45"
+    price: 45.0
+
+  apple:
+    slot: 14
+    material: APPLE
+    name: "&cApple"
+    lore:
+      - "&7Buy Price: &a$18"
+    price: 18.0
+
+  cookie:
+    slot: 16
+    material: COOKIE
+    name: "&eCookie"
+    lore:
+      - "&7Buy Price: &a$10"
+    price: 10.0
