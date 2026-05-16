@@ -1,17 +1,59 @@
 title: "&8Blocks"
 size: 54
+
 items:
   stone:
     slot: 10
     material: STONE
     name: "&fStone"
     lore:
-      - "&7Price: &a${price} each"
-    price: 5.0
-  oak_log:
+      - "&7Buy Price: &a$22"
+    price: 22.0
+
+  cobblestone:
     slot: 11
+    material: COBBLESTONE
+    name: "&7Cobblestone"
+    lore:
+      - "&7Buy Price: &a$18"
+    price: 18.0
+
+  dirt:
+    slot: 12
+    material: DIRT
+    name: "&6Dirt"
+    lore:
+      - "&7Buy Price: &a$15"
+    price: 15.0
+
+  grass_block:
+    slot: 13
+    material: GRASS_BLOCK
+    name: "&aGrass Block"
+    lore:
+      - "&7Buy Price: &a$50"
+    price: 50.0
+
+  snow_block:
+    slot: 14
+    material: SNOW_BLOCK
+    name: "&fSnow Block"
+    lore:
+      - "&7Buy Price: &a$28"
+    price: 28.0
+
+  oak_log:
+    slot: 15
     material: OAK_LOG
     name: "&6Oak Log"
     lore:
-      - "&7Price: &a${price} each"
-    price: 8.0
+      - "&7Buy Price: &a$35"
+    price: 35.0
+
+  oak_planks:
+    slot: 16
+    material: OAK_PLANKS
+    name: "&eOak Planks"
+    lore:
+      - "&7Buy Price: &a$14"
+    price: 14.0
