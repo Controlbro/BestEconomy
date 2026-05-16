@@ -57,13 +57,13 @@ public class PayCommand implements CommandExecutor, TabCompleter {
         }
         BigDecimal available = economyManager.getAvailableToSpend(player.getUniqueId(), currency);
         if (available.compareTo(amount) < 0) {
-            messageManager.send(sender, "insufficient-funds", null);
+            messageManager.send(sender, insufficientFundsMessage(), null);
             return true;
         }
         BigDecimal targetBalance = economyManager.getBalance(target.getUniqueId(), currency);
         BigDecimal maxAdd = currency.getMaxMoney().subtract(targetBalance);
         if (maxAdd.compareTo(BigDecimal.ZERO) <= 0) {
-            messageManager.send(sender, "max-money-reached", null);
+            messageManager.send(sender, maxBalanceMessage(), null);
             return true;
         }
         BigDecimal possible = amount.min(maxAdd);
@@ -85,6 +85,14 @@ public class PayCommand implements CommandExecutor, TabCompleter {
         ));
         logPay(sender.getName(), possible, target.getName());
         return true;
+    }
+
+    private String insufficientFundsMessage() {
+        return currency.getName().equalsIgnoreCase("shards") ? "insufficient-shards" : "insufficient-money";
+    }
+
+    private String maxBalanceMessage() {
+        return currency.getName().equalsIgnoreCase("shards") ? "max-shards-reached" : "max-money-reached";
     }
 
     private void logPay(String actor, BigDecimal amount, String target) {

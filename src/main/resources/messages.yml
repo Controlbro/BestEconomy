@@ -36,12 +36,12 @@ player-not-found: '&cPlayer not found.'
 cannot-pay-self: '&cYou cannot pay yourself.'
 invalid-amount: '&cInvalid amount.'
 insufficient-funds: '&cYou do not have enough &5Shards&c.'
-max-money-reached: '&cThat player has reached the maximum &5Shards &cbalance.'
-min-money-reached: '&cYou cannot go below the minimum &5Shards &cbalance.'
+max-money-reached: '&cThat player has reached the maximum &aMoney &cbalance.'
+min-money-reached: '&cYou cannot go below the minimum &aMoney &cbalance.'
 reload-complete: '&aConfiguration reloaded.'
 
 usage-eco: '&eUsage: /{currency} <give|take|reset|pay|balance> ...'
-usage-pay: '&eUsage: /pay <player> <amount>'
+usage-pay: '&eUsage: /pay <player> <amount> or /shardpay <player> <amount>'
 usage-balance: '&eUsage: /balance [player]'
 usage-baltop: '&eUsage: /baltop [page]'
 
@@ -63,13 +63,18 @@ eco:
   received: '&aYou received &5{symbol}&a{amount} &5Shards&a.'
 
 pay:
-  sent: '&aYou paid {player} &5{symbol}&a{amount} &5Shards&a.'
-  received: '&aYou received &5{symbol}&a{amount} &5Shards &afrom {player}.'
+  sent: '&aYou paid {player} {coloredsymbol}&a{amount} {currency}&a.'
+  received: '&aYou received {coloredsymbol}&a{amount} {currency} &afrom {player}.'
 
 baltop:
+  header: '&bTop &aMoney &7(Page {page}/{maxpage})'
+  format: '&e#{position} &f{player} &7- &a{symbol}{amount}'
+  no-data: '&cNo Money balance data found.'
+
+shardtop:
   header: '&bTop &5Shards &7(Page {page}/{maxpage})'
   format: '&e#{position} &f{player} &7- &5{symbol}&a{amount}'
-  no-data: '&cNo data found.'
+  no-data: '&cNo Shards balance data found.'
 
 currency:
   not-found: '&cCurrency not found.'

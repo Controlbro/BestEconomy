@@ -15,6 +15,7 @@ import com.controlbro.besteconomy.data.MySqlShardBalanceStore;
 import com.controlbro.besteconomy.gui.SellCommand;
 import com.controlbro.besteconomy.gui.ShopCommand;
 import com.controlbro.besteconomy.gui.ShopGuiService;
+import com.controlbro.besteconomy.gui.ValuesCommand;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
 import com.controlbro.besteconomy.message.MessageManager;
 import com.controlbro.besteconomy.shop.ShopAccountCommand;
@@ -142,6 +143,12 @@ public class BestEconomyPlugin extends JavaPlugin {
             pay.setExecutor(payCommand);
             pay.setTabCompleter(payCommand);
         }
+        PluginCommand shardPay = getCommand("shardpay");
+        if (shardPay != null && shardCurrency != null) {
+            PayCommand shardPayCommand = new PayCommand(this, economyManager, messageManager, shardCurrency);
+            shardPay.setExecutor(shardPayCommand);
+            shardPay.setTabCompleter(shardPayCommand);
+        }
         PluginCommand baltop = getCommand("baltop");
         if (baltop != null) {
             BaltopCommand baltopCommand = new BaltopCommand(economyManager, messageManager, defaultCurrency);
@@ -194,6 +201,10 @@ public class BestEconomyPlugin extends JavaPlugin {
         PluginCommand sell = getCommand("sell");
         if (sell != null) {
             sell.setExecutor(new SellCommand(shopGuiService, messageManager));
+        }
+        PluginCommand values = getCommand("values");
+        if (values != null) {
+            values.setExecutor(new ValuesCommand(shopGuiService, messageManager));
         }
     }
 

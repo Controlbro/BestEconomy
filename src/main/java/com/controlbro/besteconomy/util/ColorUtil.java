@@ -9,6 +9,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 public final class ColorUtil {
     private static final Pattern HEX_PATTERN = Pattern.compile("(?<!<)#([A-Fa-f0-9]{6})");
+    private static final Pattern URL_PATTERN = Pattern.compile("(?<!open_url:')(https?://[^\\s<>]+)");
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final Map<Character, String> LEGACY_TAGS = new HashMap<>();
 
@@ -44,9 +45,21 @@ public final class ColorUtil {
         if (message == null || message.isEmpty()) {
             return Component.empty();
         }
-        String processed = replaceLegacyCodes(message);
+        String processed = replaceClickableLinks(message);
+        processed = replaceLegacyCodes(processed);
         processed = replaceHexCodes(processed);
         return MINI_MESSAGE.deserialize(processed);
+    }
+
+    private static String replaceClickableLinks(String input) {
+        Matcher matcher = URL_PATTERN.matcher(input);
+        StringBuffer buffer = new StringBuffer();
+        while (matcher.find()) {
+            String url = matcher.group(1);
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement("<click:open_url:'" + url + "'><underlined>" + url + "</underlined></click>"));
+        }
+        matcher.appendTail(buffer);
+        return buffer.toString();
     }
 
     private static String replaceLegacyCodes(String input) {

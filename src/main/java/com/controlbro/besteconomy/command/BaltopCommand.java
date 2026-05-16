@@ -49,7 +49,7 @@ public class BaltopCommand implements CommandExecutor, TabCompleter {
         }
         Map<UUID, BigDecimal> top = economyManager.getTopBalances(currency);
         if (top.isEmpty()) {
-            messageManager.send(sender, "baltop.no-data", null);
+            messageManager.send(sender, messageRoot() + ".no-data", null);
             return true;
         }
         List<Map.Entry<UUID, BigDecimal>> entries = new ArrayList<>(top.entrySet());
@@ -59,7 +59,7 @@ public class BaltopCommand implements CommandExecutor, TabCompleter {
         } else if (page > maxPage) {
             page = maxPage;
         }
-        messageManager.send(sender, "baltop.header", Map.of(
+        messageManager.send(sender, messageRoot() + ".header", Map.of(
             "page", String.valueOf(page),
             "maxpage", String.valueOf(maxPage),
             "currency", coloredCurrencyName()
@@ -77,9 +77,13 @@ public class BaltopCommand implements CommandExecutor, TabCompleter {
                 "coloredsymbol", coloredSymbol(),
                 "currency", coloredCurrencyName()
             );
-            messageManager.send(sender, "baltop.format", placeholders);
+            messageManager.send(sender, messageRoot() + ".format", placeholders);
         }
         return true;
+    }
+
+    private String messageRoot() {
+        return currency.getName().equalsIgnoreCase("shards") ? "shardtop" : "baltop";
     }
 
     private String coloredCurrencyName() {

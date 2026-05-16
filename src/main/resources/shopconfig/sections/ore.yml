@@ -1,5 +1,6 @@
 title: "&8Ores"
-size: 54
+size: 27
+fill-item: BLACK_STAINED_GLASS_PANE
 
 items:
   coal:
@@ -36,7 +37,7 @@ items:
     price: 2000.0
 
   emerald:
-    slot: 31
+    slot: 22
     material: EMERALD
     name: "&aEmerald"
     lore:
