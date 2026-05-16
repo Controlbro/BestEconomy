@@ -18,6 +18,7 @@ import com.controlbro.besteconomy.gui.ShopGuiService;
 import com.controlbro.besteconomy.gui.ValuesCommand;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
 import com.controlbro.besteconomy.message.MessageManager;
+import com.controlbro.besteconomy.placeholder.InternalPlaceholderService;
 import com.controlbro.besteconomy.shop.ShopAccountCommand;
 import com.controlbro.besteconomy.shop.ShopAccountService;
 import com.controlbro.besteconomy.shop.ShopAdminCommand;
@@ -25,6 +26,8 @@ import com.controlbro.besteconomy.shop.ShopDatabaseManager;
 import com.controlbro.besteconomy.shop.ShopPendingCommandService;
 import com.controlbro.besteconomy.shop.ShopTables;
 import com.controlbro.besteconomy.vault.VaultEconomyProvider;
+import com.controlbro.besteconomy.visual.ScoreboardService;
+import com.controlbro.besteconomy.visual.TabListService;
 import java.math.BigDecimal;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
@@ -39,6 +42,7 @@ public class BestEconomyPlugin extends JavaPlugin {
     private EconomyManager economyManager;
     private MySqlShardBalanceStore mySqlShardBalanceStore;
     private MessageManager messageManager;
+    private InternalPlaceholderService placeholderService;
     private CurrencyCommandHandler commandHandler;
     private CurrencyCommandRegistrar commandRegistrar;
     private ShopDatabaseManager shopDatabaseManager;
@@ -46,6 +50,8 @@ public class BestEconomyPlugin extends JavaPlugin {
     private ShopPendingCommandService shopPendingCommandService;
     private ShopGuiService shopGuiService;
     private ShopAccountCommand registeredShopAccountCommand;
+    private ScoreboardService scoreboardService;
+    private TabListService tabListService;
     private BukkitTask autosaveTask;
     private BukkitTask shardRewardTask;
 
@@ -57,6 +63,8 @@ public class BestEconomyPlugin extends JavaPlugin {
         currencyManager = new CurrencyManager(this);
         mySqlShardBalanceStore = new MySqlShardBalanceStore(this);
         economyManager = new EconomyManager(currencyManager, new DataStore(this), mySqlShardBalanceStore);
+        placeholderService = new InternalPlaceholderService(economyManager, currencyManager);
+        messageManager.setPlaceholderService(placeholderService);
         commandHandler = new CurrencyCommandHandler(this, currencyManager, economyManager, messageManager);
         commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
 
@@ -68,6 +76,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         startShardRewardTask();
         startWebshopIntegration();
         startShopGui();
+        startVisuals();
     }
 
     @Override
@@ -81,6 +90,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (shopPendingCommandService != null) {
             shopPendingCommandService.stop();
         }
+        stopVisuals();
         economyManager.save();
         economyManager.shutdown();
         commandRegistrar.unregisterAll();
@@ -98,6 +108,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (commandRegistrar != null) {
             commandRegistrar.unregisterAll();
         }
+        stopVisuals();
         HandlerList.unregisterAll(this);
         reloadConfig();
         ensureConfigDefaults();
@@ -105,6 +116,8 @@ public class BestEconomyPlugin extends JavaPlugin {
         currencyManager.reload();
         mySqlShardBalanceStore = new MySqlShardBalanceStore(this);
         economyManager = new EconomyManager(currencyManager, new DataStore(this), mySqlShardBalanceStore);
+        placeholderService = new InternalPlaceholderService(economyManager, currencyManager);
+        messageManager.setPlaceholderService(placeholderService);
         commandHandler = new CurrencyCommandHandler(this, currencyManager, economyManager, messageManager);
         commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
         registerCommands();
@@ -115,6 +128,26 @@ public class BestEconomyPlugin extends JavaPlugin {
         startShardRewardTask();
         startWebshopIntegration();
         startShopGui();
+        startVisuals();
+    }
+
+    private void startVisuals() {
+        stopVisuals();
+        scoreboardService = new ScoreboardService(this, placeholderService);
+        tabListService = new TabListService(this, placeholderService);
+        scoreboardService.start();
+        tabListService.start();
+    }
+
+    private void stopVisuals() {
+        if (scoreboardService != null) {
+            scoreboardService.stop();
+            scoreboardService = null;
+        }
+        if (tabListService != null) {
+            tabListService.stop();
+            tabListService = null;
+        }
     }
 
     private void registerCommands() {

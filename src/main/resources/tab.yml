@@ -1,0 +1,50 @@
+# =========================================================
+# BestEconomy Tab List
+# Placeholders:
+# - {player} - player name
+# - {money} / {Money} - Money balance
+# - {shards} / {Shards} - Shards balance
+# - {playtime} / {Playtime} - total playtime
+# - {ping} / {Ping} - player ping in ms
+# - {tps} / {TPS} - current server TPS
+# - {players_online} / {online} - online player count
+# - {players_online_display} - formatted from players-online below
+# - {max_players} - server max player count
+# - {tab_prefix} - prefix selected from the prefixes section below
+# Supports legacy colors (&a, &b, etc.) and HEX colors (#FFAA00).
+# =========================================================
+
+enabled: true
+update-interval-ticks: 40
+players-online:
+  enabled: true
+  format: '&a{players_online}&7/&a{max_players}'
+header:
+  - '&a&lBestEconomy'
+  - '&7Online: {players_online_display} &8| &7TPS: &a{tps}'
+footer:
+  - '&7Money: &a${money} &8| &7Shards: &5✦{shards}'
+  - '&7Ping: &b{ping}ms &8| &7Playtime: &e{playtime}'
+
+player-name:
+  enabled: true
+  format: '{tab_prefix}&f{player} &7({ping}ms)'
+
+default-prefix: '&7'
+prefixes:
+  owner:
+    permission: 'besteconomy.tab.prefix.owner'
+    prefix: '&c[Owner] '
+    priority: 100
+  admin:
+    permission: 'besteconomy.tab.prefix.admin'
+    prefix: '&4[Admin] '
+    priority: 90
+  mod:
+    permission: 'besteconomy.tab.prefix.mod'
+    prefix: '&2[Mod] '
+    priority: 80
+  default:
+    permission: ''
+    prefix: '&7'
+    priority: 0

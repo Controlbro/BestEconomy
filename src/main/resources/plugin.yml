@@ -91,3 +91,13 @@ permissions:
   shop.sell.use:
     description: Allows using the sell menu.
     default: true
+
+  besteconomy.tab.prefix.owner:
+    description: Shows the Owner prefix in the configured tab list.
+    default: op
+  besteconomy.tab.prefix.admin:
+    description: Shows the Admin prefix in the configured tab list.
+    default: op
+  besteconomy.tab.prefix.mod:
+    description: Shows the Mod prefix in the configured tab list.
+    default: op
