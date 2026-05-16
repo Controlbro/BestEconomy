@@ -1,0 +1,83 @@
+title: "&8Farming"
+size: 54
+
+items:
+  wheat_seeds:
+    slot: 10
+    material: WHEAT_SEEDS
+    name: "&aWheat Seeds"
+    lore:
+      - "&7Buy Price: &a$8"
+    price: 8.0
+
+  carrot:
+    slot: 11
+    material: CARROT
+    name: "&6Carrot"
+    lore:
+      - "&7Buy Price: &a$18"
+    price: 18.0
+
+  potato:
+    slot: 12
+    material: POTATO
+    name: "&ePotato"
+    lore:
+      - "&7Buy Price: &a$18"
+    price: 18.0
+
+  sugar_cane:
+    slot: 13
+    material: SUGAR_CANE
+    name: "&aSugar Cane"
+    lore:
+      - "&7Buy Price: &a$25"
+    price: 25.0
+
+  cactus:
+    slot: 14
+    material: CACTUS
+    name: "&2Cactus"
+    lore:
+      - "&7Buy Price: &a$30"
+    price: 30.0
+
+  bamboo:
+    slot: 15
+    material: BAMBOO
+    name: "&aBamboo"
+    lore:
+      - "&7Buy Price: &a$20"
+    price: 20.0
+
+  oak_sapling:
+    slot: 16
+    material: OAK_SAPLING
+    name: "&aOak Sapling"
+    lore:
+      - "&7Buy Price: &a$20"
+    price: 20.0
+
+  melon_seeds:
+    slot: 19
+    material: MELON_SEEDS
+    name: "&aMelon Seeds"
+    lore:
+      - "&7Buy Price: &a$35"
+    price: 35.0
+
+  pumpkin_seeds:
+    slot: 20
+    material: PUMPKIN_SEEDS
+    name: "&6Pumpkin Seeds"
+    lore:
+      - "&7Buy Price: &a$35"
+    price: 35.0
+
+  beetroot_seeds:
+    slot: 21
+    material: BEETROOT_SEEDS
+    name: "&cBeetroot Seeds"
+    lore:
+      - "&7Buy Price: &a$12"
+    price: 12.0
