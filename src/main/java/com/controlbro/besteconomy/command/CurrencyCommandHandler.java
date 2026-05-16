@@ -33,11 +33,11 @@ public class CurrencyCommandHandler {
         if (label.equalsIgnoreCase("eco") || label.equalsIgnoreCase("economy")) {
             return handleEco(sender, label, args);
         }
-        if (args.length == 0 || args[0].equalsIgnoreCase("balance") || args[0].equalsIgnoreCase("bal")) {
+        if (args.length == 0) {
             handleBalance(sender, currency, label, args);
             return true;
         }
-        messageManager.send(sender, "usage-eco", Map.of("currency", label));
+        messageManager.send(sender, "usage-currency-balance", Map.of("currency", label));
         return true;
     }
 
@@ -72,7 +72,7 @@ public class CurrencyCommandHandler {
         }
         BigDecimal actual = economyManager.addBalance(parsed.target().getUniqueId(), parsed.currency(), parsed.amount());
         if (actual.compareTo(BigDecimal.ZERO) <= 0) {
-            messageManager.send(sender, "max-money-reached", null);
+            messageManager.send(sender, maxBalanceMessage(parsed.currency()), null);
             return;
         }
         Map<String, String> placeholders = basePlaceholders(parsed.currency(), parsed.target().getName(), actual);
@@ -98,7 +98,7 @@ public class CurrencyCommandHandler {
         }
         BigDecimal actual = economyManager.subtractBalance(parsed.target().getUniqueId(), parsed.currency(), parsed.amount());
         if (actual.compareTo(BigDecimal.ZERO) <= 0) {
-            messageManager.send(sender, "min-money-reached", null);
+            messageManager.send(sender, minBalanceMessage(parsed.currency()), null);
             return;
         }
         Map<String, String> placeholders = basePlaceholders(parsed.currency(), parsed.target().getName(), actual);
@@ -173,22 +173,12 @@ public class CurrencyCommandHandler {
     }
 
     private void handleBalance(CommandSender sender, Currency currency, String label, String[] args) {
-        if (args.length > 1) {
-            if (!sender.hasPermission("besteconomy.balance.others")) {
-                messageManager.send(sender, "no-permission", null);
-                return;
-            }
-            Optional<OfflinePlayer> targetOpt = getOfflinePlayer(args[1]);
-            if (targetOpt.isEmpty()) {
-                messageManager.send(sender, "player-not-found", null);
-                return;
-            }
-            OfflinePlayer target = targetOpt.get();
-            sendBalance(sender, target.getUniqueId(), target.getName(), currency, false);
+        if (args.length > 0) {
+            messageManager.send(sender, "usage-currency-balance", Map.of("currency", label));
             return;
         }
         if (!(sender instanceof Player player)) {
-            messageManager.send(sender, "usage-eco", Map.of("currency", label));
+            messageManager.send(sender, "usage-currency-balance", Map.of("currency", label));
             return;
         }
         if (!sender.hasPermission("besteconomy.balance")) {
@@ -201,7 +191,7 @@ public class CurrencyCommandHandler {
     private void sendBalance(CommandSender sender, UUID uuid, String name, Currency currency, boolean self) {
         BigDecimal balance = economyManager.getBalance(uuid, currency);
         Map<String, String> placeholders = basePlaceholders(currency, name, balance);
-        messageManager.send(sender, self ? "balance.self" : "balance.other", placeholders);
+        messageManager.send(sender, balanceMessagePath(currency, self), placeholders);
     }
 
     private Map<String, String> basePlaceholders(Currency currency, String player, BigDecimal amount) {
@@ -212,6 +202,19 @@ public class CurrencyCommandHandler {
         placeholders.put("coloredsymbol", coloredSymbol(currency));
         placeholders.put("currency", coloredCurrencyName(currency));
         return placeholders;
+    }
+
+    private String balanceMessagePath(Currency currency, boolean self) {
+        String currencyKey = currency.getName().equalsIgnoreCase("shards") ? "shards" : "money";
+        return "balance." + currencyKey + (self ? ".self" : ".other");
+    }
+
+    private String maxBalanceMessage(Currency currency) {
+        return currency.getName().equalsIgnoreCase("shards") ? "max-shards-reached" : "max-money-reached";
+    }
+
+    private String minBalanceMessage(Currency currency) {
+        return currency.getName().equalsIgnoreCase("shards") ? "min-shards-reached" : "min-money-reached";
     }
 
     private String coloredCurrencyName(Currency currency) {

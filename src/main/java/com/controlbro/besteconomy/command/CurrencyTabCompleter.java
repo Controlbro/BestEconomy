@@ -1,7 +1,6 @@
 package com.controlbro.besteconomy.command;
 
 import com.controlbro.besteconomy.currency.Currency;
-import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -11,7 +10,7 @@ public final class CurrencyTabCompleter {
     private CurrencyTabCompleter() {
     }
 
-    public static List<String> complete(CommandSender sender, Currency currency, String[] args) {
+    public static List<String> completeEco(CommandSender sender, Currency currency, String[] args) {
         if (args.length == 1) {
             return List.of("give", "take", "reset", "set");
         }
@@ -25,9 +24,6 @@ public final class CurrencyTabCompleter {
     }
 
     public static List<String> completeBalance(CommandSender sender, String[] args) {
-        if (args.length == 1 && sender.hasPermission("besteconomy.balance.others")) {
-            return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
-        }
-        return new ArrayList<>();
+        return List.of();
     }
 }
