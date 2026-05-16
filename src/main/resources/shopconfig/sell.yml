@@ -1,0 +1,6 @@
+title: "&8Sell Items"
+size: 54
+sell-button-slot: 49
+values:
+  STONE: 1.0
+  OAK_LOG: 2.0

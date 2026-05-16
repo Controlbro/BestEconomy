@@ -1,44 +1,56 @@
 name: BestEconomy
 main: com.controlbro.besteconomy.BestEconomyPlugin
-version: 1.0.0
+version: 1.0.5
 api-version: '26.1.2'
 author: Controlbro
 softdepend: [Vault]
 
 commands:
   eco:
-    description: Economy command for Shards.
+    description: Admin economy command for Money and Shards.
     aliases: [economy]
-    usage: /eco
+    usage: /eco <give|take|reset|set> <player> <money|shards> [amount]
   balance:
     description: Check balance.
     aliases: [bal]
     usage: /balance [player]
   baltop:
-    description: View top balances.
+    description: View top Money balances.
     usage: /baltop [page]
+  shardtop:
+    description: View top Shards balances.
+    usage: /shardtop [page]
   pay:
     description: Pay another player.
     usage: /pay <player> <amount>
   besteconomy:
     description: BestEconomy admin command.
     usage: /besteconomy reload
+  shardshop:
+    description: Create or manage your Shards webshop account.
+    usage: /shardshop [resetpassword <newPassword>]
   shop:
-    description: Create or manage your webshop account.
-    usage: /shop [resetpassword <newPassword>]
+    description: Open the Money GUI shop.
+    usage: /shop
+  sell:
+    description: Open the item sell menu.
+    usage: /sell
   shopadmin:
     description: Webshop administration command.
     usage: /shopadmin processpending
 
 permissions:
   besteconomy.eco.give:
-    description: Allows giving Shards.
+    description: Allows giving Money or Shards.
     default: op
   besteconomy.eco.take:
-    description: Allows taking Shards.
+    description: Allows taking Money or Shards.
     default: op
   besteconomy.eco.reset:
-    description: Allows resetting Shards.
+    description: Allows resetting Money or Shards.
+    default: op
+  besteconomy.eco.set:
+    description: Allows setting Money or Shards balances.
     default: op
   besteconomy.balance:
     description: Allows checking own balance.
@@ -64,3 +76,9 @@ permissions:
   shop.admin:
     description: Allows managing webshop pending commands.
     default: op
+  shop.gui.use:
+    description: Allows using the Money GUI shop.
+    default: true
+  shop.sell.use:
+    description: Allows using the sell menu.
+    default: true

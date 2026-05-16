@@ -1,26 +1,6 @@
 # =========================================================
 # BestEconomy Messages
-# Supports:
-#  - Legacy colors (&a, &b, etc.)
-#  - HEX colors (#FFAA00)
-#
-# COLOR CHEAT SHEET:
-#
-# &0 Black        &8 Dark Gray
-# &1 Dark Blue    &9 Blue
-# &2 Dark Green   &a Green
-# &3 Dark Aqua    &b Aqua
-# &4 Dark Red     &c Red
-# &5 Dark Purple  &d Light Purple
-# &6 Gold         &e Yellow
-# &7 Gray         &f White
-#
-# &k Obfuscated
-# &l Bold
-# &m Strikethrough
-# &n Underline
-# &o Italic
-# &r Reset
+# Supports legacy colors (&a, &b, etc.) and HEX colors (#FFAA00)
 # =========================================================
 
 prefix: "#FFAA00&lBestEconomy &8» &f"
@@ -29,48 +9,52 @@ no-permission: "&cYou do not have permission."
 player-not-found: "&cPlayer not found."
 cannot-pay-self: "&cYou cannot pay yourself."
 invalid-amount: "&cInvalid amount."
-insufficient-funds: "&cYou do not have enough &5Shards&c."
-max-money-reached: "&cThat player has reached the maximum &5Shards &cbalance."
-min-money-reached: "&cYou cannot go below the minimum &5Shards &cbalance."
+insufficient-funds: "&cYou do not have enough currency."
+max-money-reached: "&cThat player has reached the maximum balance."
+min-money-reached: "&cYou cannot go below the minimum balance."
 reload-complete: "&aConfiguration reloaded."
-usage-eco: "&eUsage: /{currency} <give|take|reset|pay|balance> ..."
+usage-eco: "&eUsage: /eco <give|take|reset|set> <player> <money|shards> [amount]"
 usage-pay: "&eUsage: /pay <player> <amount>"
 usage-balance: "&eUsage: /balance [player]"
 usage-baltop: "&eUsage: /baltop [page]"
 
 balance:
-  self: "&7Your &5Shards &7balance: &5{symbol}&a{amount}"
-  other: "&7{player}'s &5Shards &7balance: &5{symbol}&a{amount}"
+  self: "&7Your {currency} &7balance: {coloredsymbol}&a{amount}"
+  other: "&7{player}'s {currency} &7balance: {coloredsymbol}&a{amount}"
 
 eco:
-  give: "&aYou gave &5{symbol}&a{amount} &5Shards &ato {player}."
-  take: "&cYou took &5{symbol}&c{amount} &5Shards &cfrom {player}."
-  reset: "&eYou reset {player}'s &5Shards &ebalance."
-  received: "&aYou received &5{symbol}&a{amount} &5Shards&a."
+  give: "&aYou gave {coloredsymbol}&a{amount} {currency} &ato {player}."
+  take: "&cYou took {coloredsymbol}&c{amount} {currency} &cfrom {player}."
+  set: "&aYou set {player}'s {currency} &abalance to {coloredsymbol}&a{amount}."
+  reset: "&eYou reset {player}'s {currency} &ebalance."
+  received: "&aYou received {coloredsymbol}&a{amount} {currency}&a."
 
 pay:
-  sent: "&aYou paid {player} &5{symbol}&a{amount} &5Shards&a."
-  received: "&aYou received &5{symbol}&a{amount} &5Shards &afrom {player}."
+  sent: "&aYou paid {player} {coloredsymbol}&a{amount} {currency}&a."
+  received: "&aYou received {coloredsymbol}&a{amount} {currency} &afrom {player}."
 
 baltop:
-  header: "#00FFCC&lTop &5Shards &lBalances &7(Page {page}/{maxpage})"
-  format: "&e#{position} &f{player} &7- &5{symbol}&a{amount}"
+  header: "#00FFCC&lTop {currency} &lBalances &7(Page {page}/{maxpage})"
+  format: "&e#{position} &f{player} &7- {coloredsymbol}&a{amount}"
   no-data: "&cNo data found."
 
 currency:
-  not-found: "&cCurrency not found."
-  switched: "&aSwitched to currency &5{currency}&a."
+  not-found: "&cCurrency not found. Use money or shards."
+  switched: "&aSwitched to currency {currency}&a."
 
 shop:
-  disabled: "&cThe webshop integration is not configured yet."
+  disabled: "&cThe &5Shards &cwebshop integration is not configured yet."
   players-only: "&cOnly players can use this command."
-  usage: "&eUsage: /shop [resetpassword <newPassword>]"
+  usage: "&eUsage: /shardshop [resetpassword <newPassword>]"
   admin-usage: "&eUsage: /shopadmin processpending"
-  account-exists: "&eYour webshop account already exists."
-  password-prompt: "&eType your new webshop password in chat. &cIt will be hidden from public chat."
+  account-exists: "&eYour &5Shards &ewebshop account already exists."
+  password-prompt: "&eType your new &5Shards &ewebshop password in chat. &cIt will be hidden from public chat."
   password-cancelled: "&cPassword setup cancelled because you left the server."
-  account-created: "&aYour webshop account has been created securely."
-  account-create-failed: "&cCould not create your webshop account. Please contact staff."
-  password-reset: "&aYour webshop password has been reset."
-  password-reset-failed: "&cCould not reset your webshop password. Please contact staff."
-  pending-started: "&aPending webshop command processing started."
+  account-created: "&aYour &5Shards &ewebshop account has been created securely."
+  account-create-failed: "&cCould not create your &5Shards &cwebshop account. Please contact staff."
+  password-reset: "&aYour &5Shards &ewebshop password has been reset."
+  password-reset-failed: "&cCould not reset your &5Shards &cwebshop password. Please contact staff."
+  pending-started: "&aPending &5Shards &awebshop command processing started."
+  gui-disabled: "&cThe Money shop is not configured."
+  purchase-success: "&aPurchased &e{amount}x {item} &afor &e${price}&a."
+  sell-complete: "&aSold items for &e${amount}&a."

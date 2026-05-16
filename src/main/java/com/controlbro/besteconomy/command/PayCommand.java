@@ -73,13 +73,15 @@ public class PayCommand implements CommandExecutor, TabCompleter {
             "player", target.getName(),
             "amount", NumberUtil.format(possible),
             "symbol", currency.getSymbol(),
-            "currency", currency.getName()
+            "coloredsymbol", coloredSymbol(),
+            "currency", coloredCurrencyName()
         ));
         messageManager.send(target, "pay.received", Map.of(
             "player", player.getName(),
             "amount", NumberUtil.format(possible),
             "symbol", currency.getSymbol(),
-            "currency", currency.getName()
+            "coloredsymbol", coloredSymbol(),
+            "currency", coloredCurrencyName()
         ));
         logPay(sender.getName(), possible, target.getName());
         return true;
@@ -91,6 +93,14 @@ public class PayCommand implements CommandExecutor, TabCompleter {
         }
         String formatted = currency.getSymbol() + NumberUtil.format(amount);
         plugin.getLogger().info("[BestEconomy] " + actor + " paid " + formatted + " to " + target);
+    }
+
+    private String coloredCurrencyName() {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5Shards" : "&aMoney";
+    }
+
+    private String coloredSymbol() {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5" + currency.getSymbol() : "&a" + currency.getSymbol();
     }
 
     private BigDecimal parseAmount(String input) {

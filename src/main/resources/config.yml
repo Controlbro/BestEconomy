@@ -1,6 +1,6 @@
 starting-balance: 0
-currency-symbol: '✦'
-default-currency: shards
+currency-symbol: '$'
+default-currency: money
 max-money: 10000000000000
 min-money: 0
 economy-log-enabled: false
@@ -11,6 +11,12 @@ online-shard-reward:
   interval-seconds: 60
 
 currencies:
+  Money:
+    symbol: '$'
+    command-alias: money
+    starting-balance: 0
+    max-money: 10000000000000
+    min-money: 0
   Shards:
     symbol: '✦'
     command-alias: shards
@@ -19,6 +25,7 @@ currencies:
     min-money: 0
 
 mysql:
+  enabled: false
   host: localhost
   port: 3306
   database: besteconomy
@@ -26,6 +33,12 @@ mysql:
   password: "CHANGE_THIS_PASSWORD"
   use-ssl: false
   connection-timeout-ms: 10000
+  shard-balances:
+    table: player_balances
+    uuid-column: uuid
+    currency-column: currency
+    amount-column: amount
+    currency-value: Shards
 
 webshop:
   enabled: true

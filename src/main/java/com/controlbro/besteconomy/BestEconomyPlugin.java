@@ -11,6 +11,10 @@ import com.controlbro.besteconomy.currency.Currency;
 import com.controlbro.besteconomy.currency.CurrencyManager;
 import com.controlbro.besteconomy.data.DataStore;
 import com.controlbro.besteconomy.data.EconomyManager;
+import com.controlbro.besteconomy.data.MySqlShardBalanceStore;
+import com.controlbro.besteconomy.gui.SellCommand;
+import com.controlbro.besteconomy.gui.ShopCommand;
+import com.controlbro.besteconomy.gui.ShopGuiService;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
 import com.controlbro.besteconomy.message.MessageManager;
 import com.controlbro.besteconomy.shop.ShopAccountCommand;
@@ -32,12 +36,14 @@ import org.bukkit.scheduler.BukkitTask;
 public class BestEconomyPlugin extends JavaPlugin {
     private CurrencyManager currencyManager;
     private EconomyManager economyManager;
+    private MySqlShardBalanceStore mySqlShardBalanceStore;
     private MessageManager messageManager;
     private CurrencyCommandHandler commandHandler;
     private CurrencyCommandRegistrar commandRegistrar;
     private ShopDatabaseManager shopDatabaseManager;
     private ShopAccountService shopAccountService;
     private ShopPendingCommandService shopPendingCommandService;
+    private ShopGuiService shopGuiService;
     private ShopAccountCommand registeredShopAccountCommand;
     private BukkitTask autosaveTask;
     private BukkitTask shardRewardTask;
@@ -48,8 +54,9 @@ public class BestEconomyPlugin extends JavaPlugin {
         ensureConfigDefaults();
         messageManager = new MessageManager(this);
         currencyManager = new CurrencyManager(this);
-        economyManager = new EconomyManager(currencyManager, new DataStore(this));
-        commandHandler = new CurrencyCommandHandler(this, economyManager, messageManager);
+        mySqlShardBalanceStore = new MySqlShardBalanceStore(this);
+        economyManager = new EconomyManager(currencyManager, new DataStore(this), mySqlShardBalanceStore);
+        commandHandler = new CurrencyCommandHandler(this, currencyManager, economyManager, messageManager);
         commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
 
         registerCommands();
@@ -59,6 +66,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         startAutoSave();
         startShardRewardTask();
         startWebshopIntegration();
+        startShopGui();
     }
 
     @Override
@@ -73,26 +81,44 @@ public class BestEconomyPlugin extends JavaPlugin {
             shopPendingCommandService.stop();
         }
         economyManager.save();
+        economyManager.shutdown();
         commandRegistrar.unregisterAll();
         HandlerList.unregisterAll(this);
     }
 
     public void reloadEverything() {
+        if (shopPendingCommandService != null) {
+            shopPendingCommandService.stop();
+        }
+        if (economyManager != null) {
+            economyManager.save();
+            economyManager.shutdown();
+        }
+        if (commandRegistrar != null) {
+            commandRegistrar.unregisterAll();
+        }
+        HandlerList.unregisterAll(this);
         reloadConfig();
         ensureConfigDefaults();
         messageManager.reload();
         currencyManager.reload();
-        commandRegistrar.unregisterAll();
+        mySqlShardBalanceStore = new MySqlShardBalanceStore(this);
+        economyManager = new EconomyManager(currencyManager, new DataStore(this), mySqlShardBalanceStore);
+        commandHandler = new CurrencyCommandHandler(this, currencyManager, economyManager, messageManager);
+        commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
         registerCommands();
         commandRegistrar.registerAll();
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
         Bukkit.getOnlinePlayers().forEach(player -> economyManager.ensurePlayer(player.getUniqueId()));
         startAutoSave();
         startShardRewardTask();
         startWebshopIntegration();
+        startShopGui();
     }
 
     private void registerCommands() {
         Currency defaultCurrency = currencyManager.getDefaultCurrency();
+        Currency shardCurrency = currencyManager.getCurrency("shards");
         if (defaultCurrency == null) {
             getLogger().severe("Default currency not found in config.yml.");
             Bukkit.getPluginManager().disablePlugin(this);
@@ -122,6 +148,12 @@ public class BestEconomyPlugin extends JavaPlugin {
             baltop.setExecutor(baltopCommand);
             baltop.setTabCompleter(baltopCommand);
         }
+        PluginCommand shardtop = getCommand("shardtop");
+        if (shardtop != null && shardCurrency != null) {
+            BaltopCommand shardTopCommand = new BaltopCommand(economyManager, messageManager, shardCurrency);
+            shardtop.setExecutor(shardTopCommand);
+            shardtop.setTabCompleter(shardTopCommand);
+        }
         PluginCommand reload = getCommand("besteconomy");
         if (reload != null) {
             reload.setExecutor(new ReloadCommand(this, messageManager));
@@ -133,11 +165,11 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (shopAccountService == null || shopPendingCommandService == null) {
             return;
         }
-        PluginCommand shop = getCommand("shop");
-        if (shop != null) {
+        PluginCommand shardShop = getCommand("shardshop");
+        if (shardShop != null) {
             ShopAccountCommand shopAccountCommand = new ShopAccountCommand(this, shopAccountService, messageManager);
-            shop.setExecutor(shopAccountCommand);
-            shop.setTabCompleter(shopAccountCommand);
+            shardShop.setExecutor(shopAccountCommand);
+            shardShop.setTabCompleter(shopAccountCommand);
             Bukkit.getPluginManager().registerEvents(shopAccountCommand, this);
             registeredShopAccountCommand = shopAccountCommand;
         }
@@ -146,6 +178,22 @@ public class BestEconomyPlugin extends JavaPlugin {
             ShopAdminCommand shopAdminCommand = new ShopAdminCommand(shopPendingCommandService, messageManager);
             shopAdmin.setExecutor(shopAdminCommand);
             shopAdmin.setTabCompleter(shopAdminCommand);
+        }
+    }
+
+    private void startShopGui() {
+        if (shopGuiService != null) {
+            HandlerList.unregisterAll(shopGuiService);
+        }
+        shopGuiService = new ShopGuiService(this, economyManager, currencyManager, messageManager);
+        Bukkit.getPluginManager().registerEvents(shopGuiService, this);
+        PluginCommand shop = getCommand("shop");
+        if (shop != null) {
+            shop.setExecutor(new ShopCommand(shopGuiService, messageManager));
+        }
+        PluginCommand sell = getCommand("sell");
+        if (sell != null) {
+            sell.setExecutor(new SellCommand(shopGuiService, messageManager));
         }
     }
 
@@ -171,6 +219,27 @@ public class BestEconomyPlugin extends JavaPlugin {
     }
 
     private void ensureConfigDefaults() {
+        getConfig().addDefault("currency-symbol", "$");
+        getConfig().addDefault("default-currency", "money");
+        getConfig().addDefault("currencies.Money.symbol", "$");
+        getConfig().addDefault("currencies.Money.command-alias", "money");
+        getConfig().addDefault("currencies.Money.starting-balance", 0);
+        getConfig().addDefault("currencies.Money.max-money", 10000000000000L);
+        getConfig().addDefault("currencies.Money.min-money", 0);
+        getConfig().addDefault("currencies.Shards.symbol", "✦");
+        getConfig().addDefault("currencies.Shards.command-alias", "shards");
+        getConfig().addDefault("currencies.Shards.starting-balance", 0);
+        getConfig().addDefault("currencies.Shards.max-money", 10000000000000L);
+        getConfig().addDefault("currencies.Shards.min-money", 0);
+        if (!getConfig().getString("default-currency", "money").equalsIgnoreCase("money")) {
+            getConfig().set("default-currency", "money");
+        }
+        getConfig().set("currency-symbol", "$");
+        getConfig().set("currencies.Money.symbol", "$");
+        getConfig().set("currencies.Money.command-alias", "money");
+        getConfig().set("currencies.Shards.symbol", "✦");
+        getConfig().set("currencies.Shards.command-alias", "shards");
+        getConfig().addDefault("mysql.enabled", false);
         getConfig().addDefault("mysql.host", "localhost");
         getConfig().addDefault("mysql.port", 3306);
         getConfig().addDefault("mysql.database", "besteconomy");
@@ -178,6 +247,11 @@ public class BestEconomyPlugin extends JavaPlugin {
         getConfig().addDefault("mysql.password", "CHANGE_THIS_PASSWORD");
         getConfig().addDefault("mysql.use-ssl", false);
         getConfig().addDefault("mysql.connection-timeout-ms", 10000);
+        getConfig().addDefault("mysql.shard-balances.table", "player_balances");
+        getConfig().addDefault("mysql.shard-balances.uuid-column", "uuid");
+        getConfig().addDefault("mysql.shard-balances.currency-column", "currency");
+        getConfig().addDefault("mysql.shard-balances.amount-column", "amount");
+        getConfig().addDefault("mysql.shard-balances.currency-value", "Shards");
         getConfig().addDefault("webshop.enabled", true);
         getConfig().addDefault("webshop.pending-check-seconds", 60);
         getConfig().addDefault("webshop.max-commands-per-check", 50);
@@ -206,7 +280,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (!getConfig().getBoolean("online-shard-reward.enabled", true)) {
             return;
         }
-        Currency shardCurrency = currencyManager.getDefaultCurrency();
+        Currency shardCurrency = currencyManager.getCurrency("shards");
         if (shardCurrency == null) {
             getLogger().warning("Unable to start online Shards reward task because the default currency is missing.");
             return;

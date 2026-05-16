@@ -1,6 +1,7 @@
 package com.controlbro.besteconomy.command;
 
 import com.controlbro.besteconomy.currency.Currency;
+import com.controlbro.besteconomy.currency.CurrencyManager;
 import com.controlbro.besteconomy.data.EconomyManager;
 import com.controlbro.besteconomy.message.MessageManager;
 import com.controlbro.besteconomy.util.NumberUtil;
@@ -17,177 +18,158 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class CurrencyCommandHandler {
     private final JavaPlugin plugin;
+    private final CurrencyManager currencyManager;
     private final EconomyManager economyManager;
     private final MessageManager messageManager;
 
-    public CurrencyCommandHandler(JavaPlugin plugin, EconomyManager economyManager, MessageManager messageManager) {
+    public CurrencyCommandHandler(JavaPlugin plugin, CurrencyManager currencyManager, EconomyManager economyManager, MessageManager messageManager) {
         this.plugin = plugin;
+        this.currencyManager = currencyManager;
         this.economyManager = economyManager;
         this.messageManager = messageManager;
     }
 
     public boolean handle(CommandSender sender, Currency currency, String label, String[] args) {
+        if (label.equalsIgnoreCase("eco") || label.equalsIgnoreCase("economy")) {
+            return handleEco(sender, label, args);
+        }
+        if (args.length == 0 || args[0].equalsIgnoreCase("balance") || args[0].equalsIgnoreCase("bal")) {
+            handleBalance(sender, currency, label, args);
+            return true;
+        }
+        messageManager.send(sender, "usage-eco", Map.of("currency", label));
+        return true;
+    }
+
+    private boolean handleEco(CommandSender sender, String label, String[] args) {
         if (args.length == 0) {
-            if (!(sender instanceof Player player)) {
-                messageManager.send(sender, "usage-eco", Map.of("currency", label));
-                return true;
-            }
-            if (!sender.hasPermission("besteconomy.balance")) {
-                messageManager.send(sender, "no-permission", null);
-                return true;
-            }
-            sendBalance(player, player.getUniqueId(), player.getName(), currency, true);
+            messageManager.send(sender, "usage-eco", Map.of("currency", label));
             return true;
         }
         String sub = args[0].toLowerCase();
         switch (sub) {
-            case "give" -> handleGive(sender, currency, label, args);
-            case "take" -> handleTake(sender, currency, label, args);
-            case "reset" -> handleReset(sender, currency, label, args);
-            case "pay" -> handlePay(sender, currency, label, args);
-            case "balance", "bal" -> handleBalance(sender, currency, label, args);
+            case "give" -> handleGive(sender, label, args);
+            case "take" -> handleTake(sender, label, args);
+            case "reset" -> handleReset(sender, label, args);
+            case "set" -> handleSet(sender, label, args);
             default -> messageManager.send(sender, "usage-eco", Map.of("currency", label));
         }
         return true;
     }
 
-    private void handleGive(CommandSender sender, Currency currency, String label, String[] args) {
+    private void handleGive(CommandSender sender, String label, String[] args) {
         if (!sender.hasPermission("besteconomy.eco.give")) {
             messageManager.send(sender, "no-permission", null);
             return;
         }
-        if (args.length < 3) {
-            messageManager.send(sender, "usage-eco", Map.of("currency", label));
+        ParsedEcoCommand parsed = parseEcoCommand(sender, label, args, true);
+        if (parsed == null) {
             return;
         }
-        Optional<OfflinePlayer> targetOpt = getOfflinePlayer(args[1]);
-        if (targetOpt.isEmpty()) {
-            messageManager.send(sender, "player-not-found", null);
-            return;
-        }
-        BigDecimal amount = parseAmount(args[2]);
-        if (amount == null) {
+        if (parsed.amount().compareTo(BigDecimal.ZERO) <= 0) {
             messageManager.send(sender, "invalid-amount", null);
             return;
         }
-        OfflinePlayer target = targetOpt.get();
-        BigDecimal actual = economyManager.addBalance(target.getUniqueId(), currency, amount);
+        BigDecimal actual = economyManager.addBalance(parsed.target().getUniqueId(), parsed.currency(), parsed.amount());
         if (actual.compareTo(BigDecimal.ZERO) <= 0) {
             messageManager.send(sender, "max-money-reached", null);
             return;
         }
-        Map<String, String> placeholders = basePlaceholders(currency, target.getName(), actual);
+        Map<String, String> placeholders = basePlaceholders(parsed.currency(), parsed.target().getName(), actual);
         messageManager.send(sender, "eco.give", placeholders);
-        if (target.isOnline()) {
-            messageManager.send(target.getPlayer(), "eco.received", placeholders);
+        if (parsed.target().isOnline()) {
+            messageManager.send(parsed.target().getPlayer(), "eco.received", placeholders);
         }
-        logAction(sender, "give", actual, currency, target.getName());
+        logAction(sender, "give", actual, parsed.currency(), parsed.target().getName());
     }
 
-    private void handleTake(CommandSender sender, Currency currency, String label, String[] args) {
+    private void handleTake(CommandSender sender, String label, String[] args) {
         if (!sender.hasPermission("besteconomy.eco.take")) {
             messageManager.send(sender, "no-permission", null);
             return;
         }
-        if (args.length < 3) {
-            messageManager.send(sender, "usage-eco", Map.of("currency", label));
+        ParsedEcoCommand parsed = parseEcoCommand(sender, label, args, true);
+        if (parsed == null) {
             return;
         }
-        Optional<OfflinePlayer> targetOpt = getOfflinePlayer(args[1]);
-        if (targetOpt.isEmpty()) {
-            messageManager.send(sender, "player-not-found", null);
-            return;
-        }
-        BigDecimal amount = parseAmount(args[2]);
-        if (amount == null) {
+        if (parsed.amount().compareTo(BigDecimal.ZERO) <= 0) {
             messageManager.send(sender, "invalid-amount", null);
             return;
         }
-        OfflinePlayer target = targetOpt.get();
-        BigDecimal actual = economyManager.subtractBalance(target.getUniqueId(), currency, amount);
+        BigDecimal actual = economyManager.subtractBalance(parsed.target().getUniqueId(), parsed.currency(), parsed.amount());
         if (actual.compareTo(BigDecimal.ZERO) <= 0) {
             messageManager.send(sender, "min-money-reached", null);
             return;
         }
-        Map<String, String> placeholders = basePlaceholders(currency, target.getName(), actual);
+        Map<String, String> placeholders = basePlaceholders(parsed.currency(), parsed.target().getName(), actual);
         messageManager.send(sender, "eco.take", placeholders);
-        logAction(sender, "take", actual, currency, target.getName());
+        logAction(sender, "take", actual, parsed.currency(), parsed.target().getName());
     }
 
-    private void handleReset(CommandSender sender, Currency currency, String label, String[] args) {
+    private void handleSet(CommandSender sender, String label, String[] args) {
+        if (!sender.hasPermission("besteconomy.eco.set")) {
+            messageManager.send(sender, "no-permission", null);
+            return;
+        }
+        ParsedEcoCommand parsed = parseEcoCommand(sender, label, args, true);
+        if (parsed == null) {
+            return;
+        }
+        economyManager.setBalance(parsed.target().getUniqueId(), parsed.currency(), parsed.amount());
+        messageManager.send(sender, "eco.set", basePlaceholders(parsed.currency(), parsed.target().getName(), parsed.amount()));
+        logAction(sender, "set", parsed.amount(), parsed.currency(), parsed.target().getName());
+    }
+
+    private void handleReset(CommandSender sender, String label, String[] args) {
         if (!sender.hasPermission("besteconomy.eco.reset")) {
             messageManager.send(sender, "no-permission", null);
             return;
         }
-        if (args.length < 2) {
-            messageManager.send(sender, "usage-eco", Map.of("currency", label));
+        ParsedEcoCommand parsed = parseEcoCommand(sender, label, args, false);
+        if (parsed == null) {
             return;
+        }
+        economyManager.resetBalance(parsed.target().getUniqueId(), parsed.currency());
+        messageManager.send(sender, "eco.reset", basePlaceholders(parsed.currency(), parsed.target().getName(), BigDecimal.ZERO));
+        logAction(sender, "reset", BigDecimal.ZERO, parsed.currency(), parsed.target().getName());
+    }
+
+    private ParsedEcoCommand parseEcoCommand(CommandSender sender, String label, String[] args, boolean requiresAmount) {
+        int requiredLength = requiresAmount ? 4 : 3;
+        if (args.length < requiredLength) {
+            messageManager.send(sender, "usage-eco", Map.of("currency", label));
+            return null;
         }
         Optional<OfflinePlayer> targetOpt = getOfflinePlayer(args[1]);
         if (targetOpt.isEmpty()) {
             messageManager.send(sender, "player-not-found", null);
-            return;
+            return null;
         }
-        OfflinePlayer target = targetOpt.get();
-        economyManager.resetBalance(target.getUniqueId(), currency);
-        Map<String, String> placeholders = basePlaceholders(currency, target.getName(), BigDecimal.ZERO);
-        messageManager.send(sender, "eco.reset", placeholders);
-        logAction(sender, "reset", BigDecimal.ZERO, currency, target.getName());
+        Currency selectedCurrency = getCurrency(args[2]);
+        if (selectedCurrency == null) {
+            messageManager.send(sender, "currency.not-found", null);
+            return null;
+        }
+        BigDecimal amount = BigDecimal.ZERO;
+        if (requiresAmount) {
+            amount = parseAmount(args[3]);
+            if (amount == null) {
+                messageManager.send(sender, "invalid-amount", null);
+                return null;
+            }
+        }
+        return new ParsedEcoCommand(targetOpt.get(), selectedCurrency, amount);
     }
 
-    private void handlePay(CommandSender sender, Currency currency, String label, String[] args) {
-        if (!sender.hasPermission("besteconomy.pay")) {
-            messageManager.send(sender, "no-permission", null);
-            return;
+    private Currency getCurrency(String input) {
+        Currency currency = currencyManager.getCurrency(input);
+        if (currency != null) {
+            return currency;
         }
-        if (!(sender instanceof Player player)) {
-            messageManager.send(sender, "usage-eco", Map.of("currency", label));
-            return;
+        if (input.equalsIgnoreCase("shard")) {
+            return currencyManager.getCurrency("shards");
         }
-        if (args.length < 3) {
-            messageManager.send(sender, "usage-eco", Map.of("currency", label));
-            return;
-        }
-        Player target = Bukkit.getPlayerExact(args[1]);
-        if (target == null) {
-            messageManager.send(sender, "player-not-found", null);
-            return;
-        }
-        if (target.getUniqueId().equals(player.getUniqueId())) {
-            messageManager.send(sender, "cannot-pay-self", null);
-            return;
-        }
-        BigDecimal amount = parseAmount(args[2]);
-        if (amount == null) {
-            messageManager.send(sender, "invalid-amount", null);
-            return;
-        }
-        BigDecimal available = economyManager.getAvailableToSpend(player.getUniqueId(), currency);
-        if (available.compareTo(amount) < 0) {
-            messageManager.send(sender, "insufficient-funds", null);
-            return;
-        }
-        BigDecimal possible = amount;
-        BigDecimal targetBalance = economyManager.getBalance(target.getUniqueId(), currency);
-        BigDecimal maxAdd = currency.getMaxMoney().subtract(targetBalance);
-        if (maxAdd.compareTo(BigDecimal.ZERO) <= 0) {
-            messageManager.send(sender, "max-money-reached", null);
-            return;
-        }
-        if (maxAdd.compareTo(possible) < 0) {
-            possible = maxAdd;
-        }
-        economyManager.subtractBalance(player.getUniqueId(), currency, possible);
-        economyManager.addBalance(target.getUniqueId(), currency, possible);
-        Map<String, String> placeholders = basePlaceholders(currency, target.getName(), possible);
-        messageManager.send(sender, "pay.sent", placeholders);
-        messageManager.send(target, "pay.received", Map.of(
-            "player", player.getName(),
-            "amount", NumberUtil.format(possible),
-            "symbol", currency.getSymbol(),
-            "currency", currency.getName()
-        ));
-        logAction(sender, "pay", possible, currency, target.getName());
+        return null;
     }
 
     private void handleBalance(CommandSender sender, Currency currency, String label, String[] args) {
@@ -227,8 +209,17 @@ public class CurrencyCommandHandler {
         placeholders.put("player", player == null ? "Unknown" : player);
         placeholders.put("amount", NumberUtil.format(amount));
         placeholders.put("symbol", currency.getSymbol());
-        placeholders.put("currency", currency.getName());
+        placeholders.put("coloredsymbol", coloredSymbol(currency));
+        placeholders.put("currency", coloredCurrencyName(currency));
         return placeholders;
+    }
+
+    private String coloredCurrencyName(Currency currency) {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5Shards" : "&aMoney";
+    }
+
+    private String coloredSymbol(Currency currency) {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5" + currency.getSymbol() : "&a" + currency.getSymbol();
     }
 
     private Optional<OfflinePlayer> getOfflinePlayer(String name) {
@@ -246,7 +237,7 @@ public class CurrencyCommandHandler {
     private BigDecimal parseAmount(String input) {
         try {
             BigDecimal amount = new BigDecimal(input);
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            if (amount.compareTo(BigDecimal.ZERO) < 0) {
                 return null;
             }
             return amount;
@@ -262,12 +253,15 @@ public class CurrencyCommandHandler {
         String actor = sender.getName();
         String formatted = currency.getSymbol() + NumberUtil.format(amount);
         String message = switch (action) {
-            case "give" -> actor + " gave " + formatted + " to " + target;
-            case "take" -> actor + " took " + formatted + " from " + target;
-            case "reset" -> actor + " reset " + target + "'s balance";
-            case "pay" -> actor + " paid " + formatted + " to " + target;
-            default -> actor + " " + action + " " + formatted + " to " + target;
+            case "give" -> actor + " gave " + formatted + " " + currency.getName() + " to " + target;
+            case "take" -> actor + " took " + formatted + " " + currency.getName() + " from " + target;
+            case "set" -> actor + " set " + target + "'s " + currency.getName() + " balance to " + formatted;
+            case "reset" -> actor + " reset " + target + "'s " + currency.getName() + " balance";
+            default -> actor + " " + action + " " + formatted + " " + currency.getName() + " to " + target;
         };
         plugin.getLogger().info("[BestEconomy] " + message);
+    }
+
+    private record ParsedEcoCommand(OfflinePlayer target, Currency currency, BigDecimal amount) {
     }
 }
