@@ -3,6 +3,7 @@
 # Supports:
 # - Legacy colors (&a, &b, etc.)
 # - HEX colors (#FFAA00)
+# - Internal placeholders: {money}, {shards}, {playtime}, {ping}, {tps}, {players_online}
 # =========================================================
 
 insufficient-money: '&cYou do not have enough &aMoney&c.'
