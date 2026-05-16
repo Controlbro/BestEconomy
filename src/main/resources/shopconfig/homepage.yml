@@ -1,6 +1,7 @@
 title: "&8Money Shop"
 size: 27
 fill-empty: true
+fill-item: BLACK_STAINED_GLASS_PANE
 
 sections:
   blocks:
@@ -34,3 +35,12 @@ sections:
     lore:
       - "&7Buy useful ores and minerals."
     file: "sections/ore.yml"
+
+shard-shop-button:
+  enabled: true
+  slot: 22
+  material: AMETHYST_SHARD
+  name: "&5Shard Shop"
+  lore:
+    - "&7Click to get the Shard Shop link."
+    - "&dhttps://shop.controlbro.com"

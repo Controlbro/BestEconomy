@@ -21,8 +21,11 @@ commands:
     description: View top Shards balances.
     usage: /shardtop [page]
   pay:
-    description: Pay another player.
+    description: Pay another player Money.
     usage: /pay <player> <amount>
+  shardpay:
+    description: Pay another player Shards.
+    usage: /shardpay <player> <amount>
   besteconomy:
     description: BestEconomy admin command.
     usage: /besteconomy reload
@@ -35,6 +38,9 @@ commands:
   sell:
     description: Open the item sell menu.
     usage: /sell
+  values:
+    description: View sell values.
+    usage: /values [page]
   shopadmin:
     description: Webshop administration command.
     usage: /shopadmin processpending
@@ -63,6 +69,9 @@ permissions:
     default: true
   besteconomy.pay:
     description: Allows paying other players.
+    default: true
+  shop.values.use:
+    description: Allows opening the values GUI.
     default: true
   besteconomy.reload:
     description: Allows reloading the plugin.

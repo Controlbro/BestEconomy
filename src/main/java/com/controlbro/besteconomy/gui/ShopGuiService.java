@@ -9,9 +9,15 @@ import com.controlbro.besteconomy.util.NumberUtil;
 import java.io.File;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -32,12 +38,15 @@ public class ShopGuiService implements Listener {
     private static final int[] ADD_SLOTS = {15, 24, 33};
     private static final int BUY_SLOT = 22;
     private static final int CANCEL_SLOT = 49;
+    private static final String DEFAULT_FILL_ITEM = "BLACK_STAINED_GLASS_PANE";
+    private static final String SHARD_SHOP_URL = "https://shop.controlbro.com";
     private final JavaPlugin plugin;
     private final EconomyManager economyManager;
     private final CurrencyManager currencyManager;
     private final MessageManager messageManager;
     private final File configFolder;
     private final Map<String, SectionConfig> sections = new HashMap<>();
+    private final Set<UUID> suppressHomeOnClose = new HashSet<>();
     private YamlConfiguration homeConfig;
     private YamlConfiguration sellConfig;
 
@@ -54,6 +63,9 @@ public class ShopGuiService implements Listener {
         saveDefaultShopConfig("shopconfig/homepage.yml");
         saveDefaultShopConfig("shopconfig/sell.yml");
         saveDefaultShopConfig("shopconfig/sections/blocks.yml");
+        saveDefaultShopConfig("shopconfig/sections/farming.yml");
+        saveDefaultShopConfig("shopconfig/sections/food.yml");
+        saveDefaultShopConfig("shopconfig/sections/ore.yml");
         homeConfig = YamlConfiguration.loadConfiguration(new File(configFolder, "homepage.yml"));
         sellConfig = YamlConfiguration.loadConfiguration(new File(configFolder, "sell.yml"));
         sections.clear();
@@ -65,9 +77,7 @@ public class ShopGuiService implements Listener {
             return;
         }
         Inventory inventory = Bukkit.createInventory(new HomeHolder(), validSize(homeConfig.getInt("size", 27)), color(homeConfig.getString("title", "&8Money Shop")));
-        if (homeConfig.getBoolean("fill-empty", true)) {
-            fillEmpty(inventory);
-        }
+        fillConfigured(inventory, homeConfig, true);
         ConfigurationSection sectionRoot = homeConfig.getConfigurationSection("sections");
         if (sectionRoot != null) {
             for (String key : sectionRoot.getKeys(false)) {
@@ -82,6 +92,13 @@ public class ShopGuiService implements Listener {
                 }
             }
         }
+        ConfigurationSection shardShop = homeConfig.getConfigurationSection("shard-shop-button");
+        if (shardShop != null && shardShop.getBoolean("enabled", false)) {
+            int slot = shardShop.getInt("slot", -1);
+            if (slot >= 0 && slot < inventory.getSize()) {
+                inventory.setItem(slot, item(shardShop.getString("material", "AMETHYST_SHARD"), shardShop.getString("name", "&5Shard Shop"), shardShop.getStringList("lore")));
+            }
+        }
         player.openInventory(inventory);
     }
 
@@ -92,6 +109,33 @@ public class ShopGuiService implements Listener {
         }
         Inventory inventory = Bukkit.createInventory(new SellHolder(), validSize(sellConfig.getInt("size", 54)), color(sellConfig.getString("title", "&8Sell Items")));
         updateSellButton(inventory);
+        player.openInventory(inventory);
+    }
+
+    public void openValues(Player player, int page) {
+        if (!player.hasPermission("shop.values.use")) {
+            messageManager.send(player, "no-permission", null);
+            return;
+        }
+        List<ValueItem> valueItems = loadValueItems();
+        int maxPage = Math.max(1, (int) Math.ceil(valueItems.size() / 45.0));
+        int safePage = Math.max(1, Math.min(maxPage, page));
+        Inventory inventory = Bukkit.createInventory(new ValuesHolder(safePage), 54, color(sellConfig.getString("values-title", "&8Sell Values &7(Page {page}/{maxpage})")
+            .replace("{page}", String.valueOf(safePage)).replace("{maxpage}", String.valueOf(maxPage))));
+        int start = (safePage - 1) * 45;
+        int end = Math.min(start + 45, valueItems.size());
+        for (int i = start; i < end; i++) {
+            ValueItem valueItem = valueItems.get(i);
+            inventory.setItem(i - start, item(valueItem.material().name(), "&a" + prettyMaterialName(valueItem.material()), List.of("&7Sell Value: &a$" + NumberUtil.format(valueItem.value()))));
+        }
+        fillBottomBar(inventory);
+        if (safePage > 1) {
+            inventory.setItem(45, item("ARROW", "&ePrevious Page", List.of("&7Go to page " + (safePage - 1))));
+        }
+        inventory.setItem(49, item("BARRIER", "&cClose", List.of("&7Close this menu")));
+        if (safePage < maxPage) {
+            inventory.setItem(53, item("ARROW", "&eNext Page", List.of("&7Go to page " + (safePage + 1))));
+        }
         player.openInventory(inventory);
     }
 
@@ -109,18 +153,37 @@ public class ShopGuiService implements Listener {
             handleBuyClick(event, player, buyHolder);
         } else if (holder instanceof SellHolder sellHolder) {
             handleSellClick(event, sellHolder);
+        } else if (holder instanceof ValuesHolder valuesHolder) {
+            handleValuesClick(event, player, valuesHolder.page());
         }
     }
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (event.getInventory().getHolder() instanceof SellHolder sellHolder && !sellHolder.sold()) {
-            returnSellItems((Player) event.getPlayer(), event.getInventory());
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
+        if (suppressHomeOnClose.remove(player.getUniqueId())) {
+            return;
+        }
+        InventoryHolder holder = event.getInventory().getHolder();
+        if (holder instanceof SellHolder sellHolder && !sellHolder.sold()) {
+            returnSellItems(player, event.getInventory());
+            return;
+        }
+        if (holder instanceof SectionHolder || holder instanceof BuyHolder) {
+            Bukkit.getScheduler().runTask(plugin, () -> openHome(player));
         }
     }
 
     private void handleHomeClick(InventoryClickEvent event, Player player) {
         event.setCancelled(true);
+        ConfigurationSection shardShop = homeConfig.getConfigurationSection("shard-shop-button");
+        if (shardShop != null && shardShop.getBoolean("enabled", false) && event.getRawSlot() == shardShop.getInt("slot", -1)) {
+            player.closeInventory();
+            player.sendMessage(Component.text("Shard Shop: ").append(Component.text(SHARD_SHOP_URL).clickEvent(ClickEvent.openUrl(SHARD_SHOP_URL))));
+            return;
+        }
         ConfigurationSection sectionRoot = homeConfig.getConfigurationSection("sections");
         if (sectionRoot == null) {
             return;
@@ -129,6 +192,7 @@ public class ShopGuiService implements Listener {
             ConfigurationSection section = sectionRoot.getConfigurationSection(key);
             if (section != null && event.getRawSlot() == section.getInt("slot", -1)) {
                 SectionConfig sectionConfig = sections.computeIfAbsent(key, ignored -> loadSection(key, section.getString("file", "sections/" + key + ".yml")));
+                suppressHomeOnClose.add(player.getUniqueId());
                 openSection(player, sectionConfig);
                 return;
             }
@@ -139,6 +203,7 @@ public class ShopGuiService implements Listener {
         event.setCancelled(true);
         ShopItem clicked = sectionConfig.itemBySlot(event.getRawSlot());
         if (clicked != null) {
+            suppressHomeOnClose.add(player.getUniqueId());
             openBuyMenu(player, clicked, 1);
         }
     }
@@ -161,6 +226,7 @@ public class ShopGuiService implements Listener {
             player.closeInventory();
             return;
         }
+        suppressHomeOnClose.add(player.getUniqueId());
         openBuyMenu(player, holder.item(), amount);
     }
 
@@ -184,12 +250,29 @@ public class ShopGuiService implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> updateSellButton(event.getInventory()));
     }
 
+    private void handleValuesClick(InventoryClickEvent event, Player player, int page) {
+        event.setCancelled(true);
+        if (event.getRawSlot() == 45 && page > 1) {
+            openValues(player, page - 1);
+        } else if (event.getRawSlot() == 49) {
+            player.closeInventory();
+        } else if (event.getRawSlot() == 53) {
+            int maxPage = Math.max(1, (int) Math.ceil(loadValueItems().size() / 45.0));
+            if (page < maxPage) {
+                openValues(player, page + 1);
+            }
+        }
+    }
+
     private void openSection(Player player, SectionConfig sectionConfig) {
         Inventory inventory = Bukkit.createInventory(new SectionHolder(sectionConfig), sectionConfig.size(), color(sectionConfig.title()));
+        fillConfigured(inventory, sectionConfig.fillItem(), true);
         for (ShopItem shopItem : sectionConfig.items()) {
             List<String> lore = new ArrayList<>(shopItem.lore());
             lore.replaceAll(line -> line.replace("{price}", NumberUtil.format(shopItem.price())));
-            inventory.setItem(shopItem.slot(), item(shopItem.material().name(), shopItem.name(), lore));
+            if (shopItem.slot() >= 0 && shopItem.slot() < inventory.getSize()) {
+                inventory.setItem(shopItem.slot(), item(shopItem.material().name(), shopItem.name(), lore));
+            }
         }
         player.openInventory(inventory);
     }
@@ -205,7 +288,7 @@ public class ShopGuiService implements Listener {
         BigDecimal total = shopItem.price().multiply(BigDecimal.valueOf(amount));
         inventory.setItem(13, item(shopItem.material().name(), shopItem.name(), List.of("&7Total: &a$" + NumberUtil.format(total)), amount));
         inventory.setItem(BUY_SLOT, item("LIME_STAINED_GLASS_PANE", "&aBuy", List.of("&7Click to buy", "&7Total: &a$" + NumberUtil.format(total))));
-        inventory.setItem(CANCEL_SLOT, item("BARRIER", "&cCancel", List.of("&7Close this menu")));
+        inventory.setItem(CANCEL_SLOT, item("BARRIER", "&cCancel", List.of("&7Return to the main shop")));
         player.openInventory(inventory);
     }
 
@@ -223,8 +306,9 @@ public class ShopGuiService implements Listener {
 
     private SectionConfig loadSection(String key, String filePath) {
         YamlConfiguration config = YamlConfiguration.loadConfiguration(new File(configFolder, filePath));
-        int size = validSize(config.getInt("size", 54));
+        int size = validShopFrameSize(config.getInt("size", 27));
         String title = config.getString("title", "&8" + key);
+        String fillItem = config.getString("fill-item", config.getString("filler", DEFAULT_FILL_ITEM));
         List<ShopItem> items = new ArrayList<>();
         ConfigurationSection itemRoot = config.getConfigurationSection("items");
         if (itemRoot != null) {
@@ -236,7 +320,7 @@ public class ShopGuiService implements Listener {
                 items.add(new ShopItem(itemSection.getInt("slot", 0), material, itemSection.getString("name", material.name()), itemSection.getStringList("lore"), price));
             }
         }
-        return new SectionConfig(key, title, size, items);
+        return new SectionConfig(key, title, size, fillItem, items);
     }
 
     private void updateSellButton(Inventory inventory) {
@@ -311,11 +395,69 @@ public class ShopGuiService implements Listener {
         return material == null ? Material.STONE : material;
     }
 
-    private void fillEmpty(Inventory inventory) {
-        ItemStack filler = item("BLACK_STAINED_GLASS_PANE", " ", List.of());
-        for (int i = 0; i < inventory.getSize(); i++) {
-            if (inventory.getItem(i) == null) inventory.setItem(i, filler);
+    private void fillConfigured(Inventory inventory, ConfigurationSection config, boolean edgesOnly) {
+        if (!config.getBoolean("fill-empty", true)) {
+            return;
         }
+        fillConfigured(inventory, config.getString("fill-item", config.getString("filler", DEFAULT_FILL_ITEM)), edgesOnly);
+    }
+
+    private void fillConfigured(Inventory inventory, String materialName, boolean edgesOnly) {
+        if (materialName == null || materialName.equalsIgnoreCase("none")) {
+            return;
+        }
+        ItemStack filler = item(materialName, " ", List.of());
+        for (int i = 0; i < inventory.getSize(); i++) {
+            if ((!edgesOnly || isEdgeSlot(i, inventory.getSize())) && inventory.getItem(i) == null) {
+                inventory.setItem(i, filler);
+            }
+        }
+    }
+
+    private boolean isEdgeSlot(int slot, int size) {
+        int rows = size / 9;
+        int row = slot / 9;
+        int column = slot % 9;
+        return row == 0 || row == rows - 1 || column == 0 || column == 8;
+    }
+
+    private void fillBottomBar(Inventory inventory) {
+        ItemStack filler = item(DEFAULT_FILL_ITEM, " ", List.of());
+        for (int i = 45; i < 54; i++) {
+            inventory.setItem(i, filler);
+        }
+    }
+
+    private List<ValueItem> loadValueItems() {
+        List<ValueItem> valueItems = new ArrayList<>();
+        ConfigurationSection values = sellConfig.getConfigurationSection("values");
+        if (values == null) {
+            return valueItems;
+        }
+        for (String key : values.getKeys(false)) {
+            Material material = Material.matchMaterial(key);
+            if (material != null) {
+                valueItems.add(new ValueItem(material, new BigDecimal(values.getString(key, "0"))));
+            }
+        }
+        valueItems.sort(Comparator.comparing(valueItem -> valueItem.material().name()));
+        return valueItems;
+    }
+
+    private String prettyMaterialName(Material material) {
+        String[] parts = material.name().toLowerCase().split("_");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (!builder.isEmpty()) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return builder.toString();
+    }
+
+    private int validShopFrameSize(int size) {
+        return Math.min(27, validSize(size));
     }
 
     private int validSize(int size) {
@@ -324,7 +466,7 @@ public class ShopGuiService implements Listener {
         return (size / 9) * 9;
     }
 
-    private net.kyori.adventure.text.Component color(String text) {
+    private Component color(String text) {
         return ColorUtil.colorize(text == null ? "" : text);
     }
 
@@ -352,12 +494,19 @@ public class ShopGuiService implements Listener {
         private void sold(boolean sold) { this.sold = sold; }
     }
 
-    private record SectionConfig(String key, String title, int size, List<ShopItem> items) {
+    private record ValuesHolder(int page) implements InventoryHolder {
+        @Override public Inventory getInventory() { return null; }
+    }
+
+    private record SectionConfig(String key, String title, int size, String fillItem, List<ShopItem> items) {
         private ShopItem itemBySlot(int slot) {
             return items.stream().filter(item -> item.slot() == slot).findFirst().orElse(null);
         }
     }
 
     private record ShopItem(int slot, Material material, String name, List<String> lore, BigDecimal price) {
+    }
+
+    private record ValueItem(Material material, BigDecimal value) {
     }
 }
