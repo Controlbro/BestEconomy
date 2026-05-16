@@ -25,6 +25,7 @@ currencies:
     min-money: 0
 
 mysql:
+  enabled: false
   host: localhost
   port: 3306
   database: besteconomy
@@ -32,6 +33,12 @@ mysql:
   password: "CHANGE_THIS_PASSWORD"
   use-ssl: false
   connection-timeout-ms: 10000
+  shard-balances:
+    table: player_balances
+    uuid-column: uuid
+    currency-column: currency
+    amount-column: amount
+    currency-value: Shards
 
 webshop:
   enabled: true

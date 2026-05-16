@@ -11,6 +11,7 @@ import com.controlbro.besteconomy.currency.Currency;
 import com.controlbro.besteconomy.currency.CurrencyManager;
 import com.controlbro.besteconomy.data.DataStore;
 import com.controlbro.besteconomy.data.EconomyManager;
+import com.controlbro.besteconomy.data.MySqlShardBalanceStore;
 import com.controlbro.besteconomy.gui.SellCommand;
 import com.controlbro.besteconomy.gui.ShopCommand;
 import com.controlbro.besteconomy.gui.ShopGuiService;
@@ -35,6 +36,7 @@ import org.bukkit.scheduler.BukkitTask;
 public class BestEconomyPlugin extends JavaPlugin {
     private CurrencyManager currencyManager;
     private EconomyManager economyManager;
+    private MySqlShardBalanceStore mySqlShardBalanceStore;
     private MessageManager messageManager;
     private CurrencyCommandHandler commandHandler;
     private CurrencyCommandRegistrar commandRegistrar;
@@ -52,7 +54,8 @@ public class BestEconomyPlugin extends JavaPlugin {
         ensureConfigDefaults();
         messageManager = new MessageManager(this);
         currencyManager = new CurrencyManager(this);
-        economyManager = new EconomyManager(currencyManager, new DataStore(this));
+        mySqlShardBalanceStore = new MySqlShardBalanceStore(this);
+        economyManager = new EconomyManager(currencyManager, new DataStore(this), mySqlShardBalanceStore);
         commandHandler = new CurrencyCommandHandler(this, currencyManager, economyManager, messageManager);
         commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
 
@@ -78,18 +81,34 @@ public class BestEconomyPlugin extends JavaPlugin {
             shopPendingCommandService.stop();
         }
         economyManager.save();
+        economyManager.shutdown();
         commandRegistrar.unregisterAll();
         HandlerList.unregisterAll(this);
     }
 
     public void reloadEverything() {
+        if (shopPendingCommandService != null) {
+            shopPendingCommandService.stop();
+        }
+        if (economyManager != null) {
+            economyManager.save();
+            economyManager.shutdown();
+        }
+        if (commandRegistrar != null) {
+            commandRegistrar.unregisterAll();
+        }
+        HandlerList.unregisterAll(this);
         reloadConfig();
         ensureConfigDefaults();
         messageManager.reload();
         currencyManager.reload();
-        commandRegistrar.unregisterAll();
+        mySqlShardBalanceStore = new MySqlShardBalanceStore(this);
+        economyManager = new EconomyManager(currencyManager, new DataStore(this), mySqlShardBalanceStore);
+        commandHandler = new CurrencyCommandHandler(this, currencyManager, economyManager, messageManager);
+        commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
         registerCommands();
         commandRegistrar.registerAll();
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
         Bukkit.getOnlinePlayers().forEach(player -> economyManager.ensurePlayer(player.getUniqueId()));
         startAutoSave();
         startShardRewardTask();
@@ -220,6 +239,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         getConfig().set("currencies.Money.command-alias", "money");
         getConfig().set("currencies.Shards.symbol", "✦");
         getConfig().set("currencies.Shards.command-alias", "shards");
+        getConfig().addDefault("mysql.enabled", false);
         getConfig().addDefault("mysql.host", "localhost");
         getConfig().addDefault("mysql.port", 3306);
         getConfig().addDefault("mysql.database", "besteconomy");
@@ -227,6 +247,11 @@ public class BestEconomyPlugin extends JavaPlugin {
         getConfig().addDefault("mysql.password", "CHANGE_THIS_PASSWORD");
         getConfig().addDefault("mysql.use-ssl", false);
         getConfig().addDefault("mysql.connection-timeout-ms", 10000);
+        getConfig().addDefault("mysql.shard-balances.table", "player_balances");
+        getConfig().addDefault("mysql.shard-balances.uuid-column", "uuid");
+        getConfig().addDefault("mysql.shard-balances.currency-column", "currency");
+        getConfig().addDefault("mysql.shard-balances.amount-column", "amount");
+        getConfig().addDefault("mysql.shard-balances.currency-value", "Shards");
         getConfig().addDefault("webshop.enabled", true);
         getConfig().addDefault("webshop.pending-check-seconds", 60);
         getConfig().addDefault("webshop.max-commands-per-check", 50);
