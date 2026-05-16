@@ -22,6 +22,6 @@ public class EcoCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public java.util.List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        return CurrencyTabCompleter.complete(sender, currency, args);
+        return CurrencyTabCompleter.completeEco(sender, currency, args);
     }
 }

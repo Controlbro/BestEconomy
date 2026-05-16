@@ -1,6 +1,6 @@
 name: BestEconomy
 main: com.controlbro.besteconomy.BestEconomyPlugin
-version: 1.0.5
+version: 1.0.6
 api-version: '26.1.2'
 author: Controlbro
 softdepend: [Vault]
@@ -13,7 +13,7 @@ commands:
   balance:
     description: Check balance.
     aliases: [bal]
-    usage: /balance [player]
+    usage: /balance
   baltop:
     description: View top Money balances.
     usage: /baltop [page]
@@ -56,7 +56,7 @@ permissions:
     description: Allows checking own balance.
     default: true
   besteconomy.balance.others:
-    description: Allows checking others' balances.
+    description: Legacy permission retained; balance commands now show only your own balance.
     default: op
   besteconomy.baltop:
     description: Allows viewing baltop.

@@ -7,9 +7,6 @@ import com.controlbro.besteconomy.util.NumberUtil;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -29,22 +26,8 @@ public class BalanceCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length > 1) {
+        if (args.length > 0) {
             messageManager.send(sender, "usage-balance", null);
-            return true;
-        }
-        if (args.length == 1) {
-            if (!sender.hasPermission("besteconomy.balance.others")) {
-                messageManager.send(sender, "no-permission", null);
-                return true;
-            }
-            Optional<OfflinePlayer> targetOpt = getOfflinePlayer(args[0]);
-            if (targetOpt.isEmpty()) {
-                messageManager.send(sender, "player-not-found", null);
-                return true;
-            }
-            OfflinePlayer target = targetOpt.get();
-            sendBalance(sender, target.getName(), economyManager.getBalance(target.getUniqueId(), currency), false);
             return true;
         }
         if (!(sender instanceof Player player)) {
@@ -66,7 +49,7 @@ public class BalanceCommand implements CommandExecutor, TabCompleter {
         placeholders.put("symbol", currency.getSymbol());
         placeholders.put("coloredsymbol", coloredSymbol());
         placeholders.put("currency", coloredCurrencyName());
-        messageManager.send(sender, self ? "balance.self" : "balance.other", placeholders);
+        messageManager.send(sender, balanceMessagePath(self), placeholders);
     }
 
     private String coloredCurrencyName() {
@@ -77,23 +60,13 @@ public class BalanceCommand implements CommandExecutor, TabCompleter {
         return currency.getName().equalsIgnoreCase("shards") ? "&5" + currency.getSymbol() : "&a" + currency.getSymbol();
     }
 
-    private Optional<OfflinePlayer> getOfflinePlayer(String name) {
-        Player online = Bukkit.getPlayerExact(name);
-        if (online != null) {
-            return Optional.of(online);
-        }
-        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(name);
-        if (cached != null) {
-            return Optional.of(cached);
-        }
-        return Optional.empty();
+    private String balanceMessagePath(boolean self) {
+        String currencyKey = currency.getName().equalsIgnoreCase("shards") ? "shards" : "money";
+        return "balance." + currencyKey + (self ? ".self" : ".other");
     }
 
     @Override
     public java.util.List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1 && sender.hasPermission("besteconomy.balance.others")) {
-            return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
-        }
-        return java.util.Collections.emptyList();
+        return CurrencyTabCompleter.completeBalance(sender, args);
     }
 }

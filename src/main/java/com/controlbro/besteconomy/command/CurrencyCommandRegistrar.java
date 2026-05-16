@@ -95,7 +95,7 @@ public class CurrencyCommandRegistrar {
 
         @Override
         public java.util.List<String> tabComplete(CommandSender sender, String alias, String[] args) {
-            return CurrencyTabCompleter.complete(sender, currency, args);
+            return CurrencyTabCompleter.completeBalance(sender, args);
         }
     }
 }

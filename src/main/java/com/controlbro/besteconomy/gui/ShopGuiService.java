@@ -203,7 +203,7 @@ public class ShopGuiService implements Listener {
         inventory.setItem(ADD_SLOTS[1], item("GREEN_STAINED_GLASS_PANE", "&a+8", List.of("&7Increase by 8")));
         inventory.setItem(ADD_SLOTS[2], item("GREEN_STAINED_GLASS_PANE", "&a+16", List.of("&7Increase by 16")));
         BigDecimal total = shopItem.price().multiply(BigDecimal.valueOf(amount));
-        inventory.setItem(13, item(shopItem.material().name(), shopItem.name(), List.of("&7Amount: &e" + amount, "&7Total: &a$" + NumberUtil.format(total))));
+        inventory.setItem(13, item(shopItem.material().name(), shopItem.name(), List.of("&7Total: &a$" + NumberUtil.format(total)), amount));
         inventory.setItem(BUY_SLOT, item("LIME_STAINED_GLASS_PANE", "&aBuy", List.of("&7Click to buy", "&7Total: &a$" + NumberUtil.format(total))));
         inventory.setItem(CANCEL_SLOT, item("BARRIER", "&cCancel", List.of("&7Close this menu")));
         player.openInventory(inventory);
@@ -213,7 +213,7 @@ public class ShopGuiService implements Listener {
         Currency money = getMoneyCurrency();
         BigDecimal total = shopItem.price().multiply(BigDecimal.valueOf(amount));
         if (economyManager.getAvailableToSpend(player.getUniqueId(), money).compareTo(total) < 0) {
-            messageManager.send(player, "insufficient-funds", null);
+            messageManager.send(player, "insufficient-money", null);
             return;
         }
         economyManager.subtractBalance(player.getUniqueId(), money, total);
@@ -243,7 +243,7 @@ public class ShopGuiService implements Listener {
         int slot = sellConfig.getInt("sell-button-slot", 49);
         if (slot >= 0 && slot < inventory.getSize()) {
             BigDecimal total = calculateSellTotal(inventory);
-            inventory.setItem(slot, item("LIME_STAINED_GLASS_PANE", "&aSell", List.of("&7You will receive: &a$" + NumberUtil.format(total))));
+            inventory.setItem(slot, item("LIME_STAINED_GLASS_PANE", "&aSell", List.of("&7You will receive &aMoney&7: &a$" + NumberUtil.format(total))));
         }
     }
 
@@ -294,7 +294,11 @@ public class ShopGuiService implements Listener {
     }
 
     private ItemStack item(String materialName, String name, List<String> lore) {
-        ItemStack itemStack = new ItemStack(material(materialName));
+        return item(materialName, name, lore, 1);
+    }
+
+    private ItemStack item(String materialName, String name, List<String> lore, int amount) {
+        ItemStack itemStack = new ItemStack(material(materialName), Math.max(1, Math.min(64, amount)));
         ItemMeta meta = itemStack.getItemMeta();
         meta.displayName(color(name));
         meta.lore(lore.stream().map(this::color).toList());
