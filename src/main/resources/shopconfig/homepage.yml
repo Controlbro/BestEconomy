@@ -1,11 +1,36 @@
 title: "&8Money Shop"
 size: 27
 fill-empty: true
+
 sections:
   blocks:
-    slot: 11
+    slot: 10
     material: STONE
     name: "&aBlocks"
     lore:
       - "&7Buy common building blocks."
     file: "sections/blocks.yml"
+
+  farming:
+    slot: 12
+    material: WHEAT_SEEDS
+    name: "&aFarming"
+    lore:
+      - "&7Buy starter crops and farm items."
+    file: "sections/farming.yml"
+
+  food:
+    slot: 14
+    material: BREAD
+    name: "&6Food"
+    lore:
+      - "&7Buy basic food items."
+    file: "sections/food.yml"
+
+  ores:
+    slot: 16
+    material: DIAMOND
+    name: "&bOres"
+    lore:
+      - "&7Buy useful ores and minerals."
+    file: "sections/ore.yml"
