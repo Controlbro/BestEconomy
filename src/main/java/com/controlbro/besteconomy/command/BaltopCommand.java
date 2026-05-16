@@ -61,7 +61,8 @@ public class BaltopCommand implements CommandExecutor, TabCompleter {
         }
         messageManager.send(sender, "baltop.header", Map.of(
             "page", String.valueOf(page),
-            "maxpage", String.valueOf(maxPage)
+            "maxpage", String.valueOf(maxPage),
+            "currency", coloredCurrencyName()
         ));
         int start = (page - 1) * PER_PAGE;
         int end = Math.min(start + PER_PAGE, entries.size());
@@ -73,11 +74,20 @@ public class BaltopCommand implements CommandExecutor, TabCompleter {
                 "player", player.getName() == null ? "Unknown" : player.getName(),
                 "amount", NumberUtil.format(entry.getValue()),
                 "symbol", currency.getSymbol(),
-                "currency", currency.getName()
+                "coloredsymbol", coloredSymbol(),
+                "currency", coloredCurrencyName()
             );
             messageManager.send(sender, "baltop.format", placeholders);
         }
         return true;
+    }
+
+    private String coloredCurrencyName() {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5Shards" : "&aMoney";
+    }
+
+    private String coloredSymbol() {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5" + currency.getSymbol() : "&a" + currency.getSymbol();
     }
 
     @Override

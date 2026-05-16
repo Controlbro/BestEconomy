@@ -1,0 +1,11 @@
+title: "&8Money Shop"
+size: 27
+fill-empty: true
+sections:
+  blocks:
+    slot: 11
+    material: STONE
+    name: "&aBlocks"
+    lore:
+      - "&7Buy common building blocks."
+    file: "sections/blocks.yml"

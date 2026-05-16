@@ -64,8 +64,17 @@ public class BalanceCommand implements CommandExecutor, TabCompleter {
         placeholders.put("player", player == null ? "Unknown" : player);
         placeholders.put("amount", NumberUtil.format(amount));
         placeholders.put("symbol", currency.getSymbol());
-        placeholders.put("currency", currency.getName());
+        placeholders.put("coloredsymbol", coloredSymbol());
+        placeholders.put("currency", coloredCurrencyName());
         messageManager.send(sender, self ? "balance.self" : "balance.other", placeholders);
+    }
+
+    private String coloredCurrencyName() {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5Shards" : "&aMoney";
+    }
+
+    private String coloredSymbol() {
+        return currency.getName().equalsIgnoreCase("shards") ? "&5" + currency.getSymbol() : "&a" + currency.getSymbol();
     }
 
     private Optional<OfflinePlayer> getOfflinePlayer(String name) {

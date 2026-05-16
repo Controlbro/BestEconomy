@@ -13,21 +13,21 @@ public final class CurrencyTabCompleter {
 
     public static List<String> complete(CommandSender sender, Currency currency, String[] args) {
         if (args.length == 1) {
-            List<String> completions = new ArrayList<>();
-            completions.add("give");
-            completions.add("take");
-            completions.add("reset");
-            completions.add("pay");
-            completions.add("balance");
-            return completions;
+            return List.of("give", "take", "reset", "set");
         }
         if (args.length == 2) {
-            String sub = args[0].toLowerCase();
-            if (sub.equals("give") || sub.equals("take") || sub.equals("reset") || sub.equals("pay")
-                || sub.equals("balance")) {
-                return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
-            }
+            return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+        }
+        if (args.length == 3) {
+            return List.of("money", "shards");
         }
         return List.of();
+    }
+
+    public static List<String> completeBalance(CommandSender sender, String[] args) {
+        if (args.length == 1 && sender.hasPermission("besteconomy.balance.others")) {
+            return Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
+        }
+        return new ArrayList<>();
     }
 }

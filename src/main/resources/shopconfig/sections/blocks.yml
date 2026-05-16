@@ -1,0 +1,17 @@
+title: "&8Blocks"
+size: 54
+items:
+  stone:
+    slot: 10
+    material: STONE
+    name: "&fStone"
+    lore:
+      - "&7Price: &a${price} each"
+    price: 5.0
+  oak_log:
+    slot: 11
+    material: OAK_LOG
+    name: "&6Oak Log"
+    lore:
+      - "&7Price: &a${price} each"
+    price: 8.0

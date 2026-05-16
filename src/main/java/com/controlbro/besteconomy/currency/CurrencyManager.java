@@ -42,6 +42,11 @@ public class CurrencyManager {
     }
 
     public Currency getDefaultCurrency() {
+        String configuredDefault = plugin.getConfig().getString("default-currency", "money");
+        Currency defaultCurrency = getCurrency(configuredDefault);
+        if (defaultCurrency != null) {
+            return defaultCurrency;
+        }
         return currencies.get("default");
     }
 
