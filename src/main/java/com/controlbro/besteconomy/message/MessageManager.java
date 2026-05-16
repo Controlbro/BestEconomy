@@ -3,6 +3,9 @@ package com.controlbro.besteconomy.message;
 import com.controlbro.besteconomy.util.ColorUtil;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -25,6 +28,19 @@ public class MessageManager {
             plugin.saveResource("messages.yml", false);
         }
         messages = YamlConfiguration.loadConfiguration(file);
+        InputStream defaultsStream = plugin.getResource("messages.yml");
+        if (defaultsStream != null) {
+            try (InputStreamReader reader = new InputStreamReader(defaultsStream, StandardCharsets.UTF_8)) {
+                YamlConfiguration defaults = YamlConfiguration.loadConfiguration(reader);
+                messages.setDefaults(defaults);
+                messages.options().copyDefaults(true);
+                if (messages instanceof YamlConfiguration yaml) {
+                    yaml.save(file);
+                }
+            } catch (IOException ignored) {
+                // ignored
+            }
+        }
         prefix = messages.getString("prefix", "");
     }
 

@@ -60,3 +60,17 @@ baltop:
 currency:
   not-found: "&cCurrency not found."
   switched: "&aSwitched to currency &5{currency}&a."
+
+shop:
+  disabled: "&cThe webshop integration is not configured yet."
+  players-only: "&cOnly players can use this command."
+  usage: "&eUsage: /shop [resetpassword <newPassword>]"
+  admin-usage: "&eUsage: /shopadmin processpending"
+  account-exists: "&eYour webshop account already exists."
+  password-prompt: "&eType your new webshop password in chat. &cIt will be hidden from public chat."
+  password-cancelled: "&cPassword setup cancelled because you left the server."
+  account-created: "&aYour webshop account has been created securely."
+  account-create-failed: "&cCould not create your webshop account. Please contact staff."
+  password-reset: "&aYour webshop password has been reset."
+  password-reset-failed: "&cCould not reset your webshop password. Please contact staff."
+  pending-started: "&aPending webshop command processing started."

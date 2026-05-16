@@ -1,7 +1,7 @@
 name: BestEconomy
 main: com.controlbro.besteconomy.BestEconomyPlugin
 version: 1.0.0
-api-version: 1.26
+api-version: '26.1.2'
 author: Controlbro
 softdepend: [Vault]
 
@@ -23,6 +23,12 @@ commands:
   besteconomy:
     description: BestEconomy admin command.
     usage: /besteconomy reload
+  shop:
+    description: Create or manage your webshop account.
+    usage: /shop [resetpassword <newPassword>]
+  shopadmin:
+    description: Webshop administration command.
+    usage: /shopadmin processpending
 
 permissions:
   besteconomy.eco.give:
@@ -48,4 +54,13 @@ permissions:
     default: true
   besteconomy.reload:
     description: Allows reloading the plugin.
+    default: op
+  shop.account.use:
+    description: Allows creating a webshop account.
+    default: true
+  shop.account.reset:
+    description: Allows resetting your webshop password.
+    default: true
+  shop.admin:
+    description: Allows managing webshop pending commands.
     default: op
