@@ -1,20 +1,34 @@
 starting-balance: 0
-currency-symbol: '$'
+currency-symbol: '✦'
+default-currency: shards
 max-money: 10000000000000
-min-money: -10000
+min-money: 0
 economy-log-enabled: false
 auto-save-interval-seconds: 300
+online-shard-reward:
+  enabled: true
+  amount: 1
+  interval-seconds: 60
 
 currencies:
-  default:
-    symbol: '$'
-    command-alias: eco
+  Shards:
+    symbol: '✦'
+    command-alias: shards
     starting-balance: 0
     max-money: 10000000000000
-    min-money: -10000
-  tokens:
-    symbol: '✦'
-    command-alias: token
-    starting-balance: 0
-    max-money: 1000000
     min-money: 0
+
+mysql:
+  host: localhost
+  port: 3306
+  database: besteconomy
+  username: "CHANGE_THIS_USERNAME"
+  password: "CHANGE_THIS_PASSWORD"
+  use-ssl: false
+  connection-timeout-ms: 10000
+
+webshop:
+  enabled: true
+  pending-check-seconds: 60
+  max-commands-per-check: 50
+  api-key: "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET"
