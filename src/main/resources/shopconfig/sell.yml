@@ -1,6 +1,7 @@
 title: "&8Sell Items"
 size: 54
-sell-button-slot: 49
+sell-cancel-slot: 49
+sell-total-slot: 53
 
 values:
   # === STONE / BASIC BLOCKS ===
