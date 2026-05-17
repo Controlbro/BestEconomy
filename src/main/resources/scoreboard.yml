@@ -1,31 +1,20 @@
-# =========================================================
-# BestEconomy Scoreboard
-# Placeholders:
-# - {player} - player name
-# - {money} / {Money} - Money balance
-# - {shards} / {Shards} - Shards balance
-# - {playtime} / {Playtime} - total playtime
-# - {ping} / {Ping} - player ping in ms
-# - {tps} / {TPS} - current server TPS
-# - {players_online} / {online} - online player count
-# - {players_online_display} - formatted from players-online below
-# - {max_players} - server max player count
-# Supports legacy colors with & codes.
-# =========================================================
-
 enabled: true
 update-interval-ticks: 40
+
 players-online:
   enabled: true
   format: '&a{players_online}&7/&a{max_players}'
-title: '&a&lBestEconomy'
+
+title: '&fSheep&bSquid'
+
 lines:
-  - '&7&m----------------'
-  - '&fPlayer: &a{player}'
-  - '&fMoney: &a${money}'
-  - '&fShards: &5✦{shards}'
-  - '&fPlaytime: &e{playtime}'
-  - '&fPing: &b{ping}ms'
-  - '&fTPS: &a{tps}'
-  - '&fOnline: {players_online_display}'
-  - '&7&m----------------'
+  - ' '
+  - '&a&l$ &fMoney: &a{money}'
+  - '&5&l⭐ &fShards: &5{shards}'
+  - '&e&l⌚ &fPlaytime: &e{playtime}'
+  - ' '
+  - '&b&l👥 &fOnline: &b{players_online_display}'
+  - '&d&l⚡ &fPing: &d{ping}ms'
+  - '&a&l✔ &fTPS: &a{tps}'
+  - ' '
+  - '&7mc.sheepsquid.net'
