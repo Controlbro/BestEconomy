@@ -1,0 +1,880 @@
+package com.controlbro.besteconomy.market;
+
+import com.controlbro.besteconomy.currency.Currency;
+import com.controlbro.besteconomy.currency.CurrencyManager;
+import com.controlbro.besteconomy.data.EconomyManager;
+import com.controlbro.besteconomy.message.MessageManager;
+import com.controlbro.besteconomy.util.ColorUtil;
+import com.controlbro.besteconomy.util.NumberUtil;
+import java.io.File;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class MarketService implements Listener {
+    private static final int MARKET_SIZE = 54;
+    private static final int CONTENT_SLOTS = 45;
+    private static final int DEFAULT_STALL_SLOTS = 10;
+    private static final int MAX_STOCK_SLOTS = 27;
+    private static final int PREVIOUS_SLOT = 45;
+    private static final int SEARCH_SLOT = 49;
+    private static final int MANAGE_SLOT = 51;
+    private static final int NEXT_SLOT = 53;
+    private static final int BACK_SLOT = 45;
+    private static final int CREATE_LISTING_SLOT = 49;
+    private static final int ITEM_PREVIEW_SLOT = 13;
+    private static final int STOCK_SLOT = 22;
+    private static final int PRICE_SLOT = 29;
+    private static final int STACK_SIZE_SLOT = 31;
+    private static final int REMOVE_SLOT = 33;
+    private static final Material FILLER = Material.BLACK_STAINED_GLASS_PANE;
+
+    private final JavaPlugin plugin;
+    private final EconomyManager economyManager;
+    private final CurrencyManager currencyManager;
+    private final MessageManager messageManager;
+    private final File file;
+    private final Map<UUID, MarketStall> stalls = new LinkedHashMap<>();
+    private final Map<UUID, ChatInput> chatInputs = new HashMap<>();
+
+    public MarketService(JavaPlugin plugin, EconomyManager economyManager, CurrencyManager currencyManager, MessageManager messageManager) {
+        this.plugin = plugin;
+        this.economyManager = economyManager;
+        this.currencyManager = currencyManager;
+        this.messageManager = messageManager;
+        this.file = new File(plugin.getDataFolder(), "market.yml");
+        load();
+    }
+
+    public void openMarket(Player player, int page, String search) {
+        List<MarketStall> visibleStalls = filteredStalls(search);
+        int maxPage = maxPage(visibleStalls.size());
+        int safePage = clampPage(page, maxPage);
+        Inventory inventory = Bukkit.createInventory(new MarketHolder(safePage, search), MARKET_SIZE, color(search == null ? "&8Market" : "&8Market Search: " + search));
+        fillBottom(inventory);
+        int start = safePage * CONTENT_SLOTS;
+        for (int i = 0; i < CONTENT_SLOTS && start + i < visibleStalls.size(); i++) {
+            MarketStall stall = visibleStalls.get(start + i);
+            inventory.setItem(i, stallIcon(stall, search));
+        }
+        inventory.setItem(PREVIOUS_SLOT, navItem("ARROW", "&ePrevious Page", "&7Go to page " + safePage));
+        inventory.setItem(SEARCH_SLOT, navItem("COMPASS", "&bSearch Items", "&7Click and type an item name in chat."));
+        inventory.setItem(MANAGE_SLOT, navItem("CHEST", "&aManage Your Stall", "&7Create or edit your own stall."));
+        inventory.setItem(NEXT_SLOT, navItem("ARROW", "&eNext Page", "&7Go to page " + (safePage + 2)));
+        player.openInventory(inventory);
+    }
+
+    public void createStall(Player player, String name) {
+        MarketStall stall = stall(player.getUniqueId(), player.getName());
+        stall.name = trimName(name);
+        save();
+        playDing(player);
+        messageManager.send(player, "market.stall-created", Map.of("name", stall.name));
+        openManage(player);
+    }
+
+    public void renameStall(Player player, String name) {
+        MarketStall stall = stall(player.getUniqueId(), player.getName());
+        stall.name = trimName(name);
+        save();
+        playDing(player);
+        messageManager.send(player, "market.stall-renamed", Map.of("name", stall.name));
+        openManage(player);
+    }
+
+    public void openManage(Player player) {
+        openManage(player, 0);
+    }
+
+    private void openManage(Player player, int page) {
+        MarketStall stall = stall(player.getUniqueId(), player.getName());
+        int maxPage = maxPage(stall.slots);
+        int safePage = clampPage(page, maxPage);
+        Inventory inventory = Bukkit.createInventory(new ManageHolder(stall.owner, safePage), MARKET_SIZE, color("&8Manage Stall"));
+        fillBottom(inventory);
+        List<MarketListing> listings = sortedListings(stall);
+        int start = safePage * CONTENT_SLOTS;
+        for (int i = 0; i < CONTENT_SLOTS && start + i < stall.slots; i++) {
+            if (start + i < listings.size()) {
+                inventory.setItem(i, listingIcon(listings.get(start + i), true));
+            } else {
+                inventory.setItem(i, navItem("GRAY_STAINED_GLASS_PANE", "&7Empty Listing Slot", "&7Click with an item on your cursor to list it."));
+            }
+        }
+        inventory.setItem(BACK_SLOT, navItem("ARROW", safePage > 0 ? "&ePrevious Page" : "&eBack to Market", safePage > 0 ? "&7Go to the previous stall slots." : "&7Return to all stalls."));
+        inventory.setItem(CREATE_LISTING_SLOT, navItem("EMERALD", "&aAdd Held Item", "&7Hold an item and click to create a listing.", "&7You have &e" + stall.slots + " &7listing slots."));
+        inventory.setItem(NEXT_SLOT, navItem("ARROW", "&eNext Page", "&7Go to the next stall slots."));
+        player.openInventory(inventory);
+    }
+
+    public void giveSlots(OfflinePlayer target, int amount) {
+        MarketStall stall = stall(target.getUniqueId(), target.getName() == null ? "Unknown" : target.getName());
+        stall.slots += amount;
+        save();
+    }
+
+    public void save() {
+        YamlConfiguration config = new YamlConfiguration();
+        ConfigurationSection root = config.createSection("stalls");
+        for (MarketStall stall : stalls.values()) {
+            ConfigurationSection section = root.createSection(stall.owner.toString());
+            section.set("name", stall.name);
+            section.set("owner-name", stall.ownerName);
+            section.set("slots", stall.slots);
+            section.set("offline-earnings", stall.offlineEarnings.toPlainString());
+            ConfigurationSection listingsSection = section.createSection("listings");
+            for (MarketListing listing : stall.listings.values()) {
+                ConfigurationSection listingSection = listingsSection.createSection(listing.id.toString());
+                listingSection.set("display-item", listing.displayItem);
+                listingSection.set("price", listing.price.toPlainString());
+                listingSection.set("stack-size", listing.stackSize);
+                ConfigurationSection stockSection = listingSection.createSection("stock");
+                for (int i = 0; i < listing.stock.length; i++) {
+                    if (isSellable(listing.stock[i])) {
+                        stockSection.set(String.valueOf(i), listing.stock[i]);
+                    }
+                }
+            }
+        }
+        try {
+            config.save(file);
+        } catch (IOException ignored) {
+            // ignored
+        }
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        MarketStall stall = stalls.get(event.getPlayer().getUniqueId());
+        if (stall == null || stall.offlineEarnings.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        messageManager.send(event.getPlayer(), "market.offline-earnings", Map.of("amount", NumberUtil.format(stall.offlineEarnings)));
+        stall.offlineEarnings = BigDecimal.ZERO;
+        save();
+    }
+
+    @EventHandler
+    public void onChat(AsyncPlayerChatEvent event) {
+        ChatInput input = chatInputs.remove(event.getPlayer().getUniqueId());
+        if (input == null) {
+            return;
+        }
+        event.setCancelled(true);
+        String message = event.getMessage();
+        Bukkit.getScheduler().runTask(plugin, () -> handleChatInput(event.getPlayer(), input, message));
+    }
+
+    @EventHandler
+    public void onClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        InventoryHolder holder = event.getInventory().getHolder();
+        if (holder instanceof StockHolder) {
+            if (event.getCursor() != null && event.getCursor().getType() == Material.BEDROCK) {
+                event.setCancelled(true);
+                messageManager.send(player, "market.bedrock-blocked", null);
+            }
+            return;
+        }
+        if (holder instanceof MarketHolder marketHolder) {
+            handleMarketClick(event, player, marketHolder);
+        } else if (holder instanceof StallHolder stallHolder) {
+            handleStallClick(event, player, stallHolder);
+        } else if (holder instanceof ManageHolder manageHolder) {
+            handleManageClick(event, player, manageHolder);
+        } else if (holder instanceof ListingHolder listingHolder) {
+            handleListingClick(event, player, listingHolder);
+        }
+    }
+
+    @EventHandler
+    public void onClose(InventoryCloseEvent event) {
+        InventoryHolder holder = event.getInventory().getHolder();
+        if (holder instanceof StockHolder stockHolder) {
+            MarketListing listing = listing(stockHolder.owner, stockHolder.listing);
+            if (listing == null) {
+                return;
+            }
+            ItemStack[] contents = event.getInventory().getContents();
+            for (int i = 0; i < Math.min(MAX_STOCK_SLOTS, contents.length); i++) {
+                ItemStack item = contents[i];
+                listing.stock[i] = cloneOrNull(item);
+                if (item != null && item.getType() == Material.BEDROCK && event.getPlayer() instanceof Player player) {
+                    player.getInventory().addItem(item.clone()).values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                }
+            }
+            save();
+            if (event.getPlayer() instanceof Player player) {
+                playDing(player);
+            }
+        }
+    }
+
+    private void handleMarketClick(InventoryClickEvent event, Player player, MarketHolder holder) {
+        event.setCancelled(true);
+        if (event.getRawSlot() == PREVIOUS_SLOT) {
+            openMarket(player, holder.page - 1, holder.search);
+            return;
+        }
+        if (event.getRawSlot() == NEXT_SLOT) {
+            openMarket(player, holder.page + 1, holder.search);
+            return;
+        }
+        if (event.getRawSlot() == SEARCH_SLOT) {
+            chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.SEARCH, null));
+            player.closeInventory();
+            messageManager.send(player, "market.search-prompt", null);
+            return;
+        }
+        if (event.getRawSlot() == MANAGE_SLOT) {
+            openManage(player);
+            return;
+        }
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= CONTENT_SLOTS) {
+            return;
+        }
+        List<MarketStall> visibleStalls = filteredStalls(holder.search);
+        int index = holder.page * CONTENT_SLOTS + event.getRawSlot();
+        if (index < visibleStalls.size()) {
+            openStall(player, visibleStalls.get(index), 0, holder.search);
+        }
+    }
+
+    private void handleStallClick(InventoryClickEvent event, Player player, StallHolder holder) {
+        event.setCancelled(true);
+        if (event.getRawSlot() == BACK_SLOT) {
+            openMarket(player, 0, holder.search);
+            return;
+        }
+        MarketStall stall = stalls.get(holder.owner);
+        if (stall == null || event.getRawSlot() < 0 || event.getRawSlot() >= CONTENT_SLOTS) {
+            return;
+        }
+        List<MarketListing> listings = searchableListings(stall, holder.search);
+        int index = holder.page * CONTENT_SLOTS + event.getRawSlot();
+        if (index < listings.size()) {
+            buyListing(player, stall, listings.get(index));
+            openStall(player, stall, holder.page, holder.search);
+        }
+    }
+
+    private void handleManageClick(InventoryClickEvent event, Player player, ManageHolder holder) {
+        event.setCancelled(true);
+        if (!player.getUniqueId().equals(holder.owner)) {
+            return;
+        }
+        if (event.getRawSlot() == BACK_SLOT) {
+            if (holder.page > 0) {
+                openManage(player, holder.page - 1);
+            } else {
+                openMarket(player, 0, null);
+            }
+            return;
+        }
+        if (event.getRawSlot() == NEXT_SLOT) {
+            openManage(player, holder.page + 1);
+            return;
+        }
+        if (event.getRawSlot() == CREATE_LISTING_SLOT) {
+            createListingFromCursorOrHand(player, event.getCursor());
+            return;
+        }
+        MarketStall stall = stall(player.getUniqueId(), player.getName());
+        if (event.getRawSlot() >= 0 && event.getRawSlot() < CONTENT_SLOTS) {
+            int listingIndex = holder.page * CONTENT_SLOTS + event.getRawSlot();
+            if (listingIndex >= stall.slots) {
+                return;
+            }
+            List<MarketListing> listings = sortedListings(stall);
+            if (listingIndex < listings.size()) {
+                openListingManagement(player, listings.get(listingIndex));
+            } else {
+                createListingFromCursorOrHand(player, event.getCursor());
+            }
+        }
+    }
+
+    private void handleListingClick(InventoryClickEvent event, Player player, ListingHolder holder) {
+        event.setCancelled(true);
+        if (!player.getUniqueId().equals(holder.owner)) {
+            return;
+        }
+        MarketListing listing = listing(holder.owner, holder.listing);
+        if (listing == null) {
+            openManage(player);
+            return;
+        }
+        if (event.getRawSlot() == STOCK_SLOT) {
+            openStock(player, listing);
+            return;
+        }
+        if (event.getRawSlot() == PRICE_SLOT) {
+            chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.PRICE, listing.id));
+            player.closeInventory();
+            messageManager.send(player, "market.price-prompt", null);
+            return;
+        }
+        if (event.getRawSlot() == STACK_SIZE_SLOT) {
+            chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.STACK_SIZE, listing.id));
+            player.closeInventory();
+            messageManager.send(player, "market.stack-size-prompt", null);
+            return;
+        }
+        if (event.getRawSlot() == REMOVE_SLOT) {
+            removeListing(player, listing);
+            return;
+        }
+        if (event.getRawSlot() == BACK_SLOT) {
+            openManage(player);
+        }
+    }
+
+    private void handleChatInput(Player player, ChatInput input, String message) {
+        if (message.equalsIgnoreCase("cancel")) {
+            messageManager.send(player, "market.input-cancelled", null);
+            return;
+        }
+        if (input.type == ChatInputType.SEARCH) {
+            openMarket(player, 0, message);
+            return;
+        }
+        MarketListing listing = listing(player.getUniqueId(), input.listingId);
+        if (listing == null) {
+            return;
+        }
+        if (input.type == ChatInputType.PRICE) {
+            try {
+                BigDecimal price = new BigDecimal(message);
+                if (price.compareTo(BigDecimal.ZERO) <= 0) {
+                    messageManager.send(player, "invalid-amount", null);
+                    openListingManagement(player, listing);
+                    return;
+                }
+                listing.price = price;
+                save();
+                playDing(player);
+                messageManager.send(player, "market.price-set", Map.of("price", NumberUtil.format(price)));
+            } catch (NumberFormatException ex) {
+                messageManager.send(player, "invalid-amount", null);
+            }
+            openListingManagement(player, listing);
+            return;
+        }
+        if (input.type == ChatInputType.STACK_SIZE) {
+            try {
+                int size = Integer.parseInt(message);
+                if (size <= 0 || size > Math.max(1, listing.displayItem.getMaxStackSize())) {
+                    messageManager.send(player, "invalid-amount", null);
+                    openListingManagement(player, listing);
+                    return;
+                }
+                listing.stackSize = size;
+                save();
+                playDing(player);
+                messageManager.send(player, "market.stack-size-set", Map.of("size", String.valueOf(size)));
+            } catch (NumberFormatException ex) {
+                messageManager.send(player, "invalid-amount", null);
+            }
+            openListingManagement(player, listing);
+        }
+    }
+
+    private void openStall(Player player, MarketStall stall, int page, String search) {
+        List<MarketListing> listings = searchableListings(stall, search);
+        int maxPage = maxPage(listings.size());
+        int safePage = clampPage(page, maxPage);
+        Inventory inventory = Bukkit.createInventory(new StallHolder(stall.owner, safePage, search), MARKET_SIZE, color("&8" + stall.name));
+        fillBottom(inventory);
+        int start = safePage * CONTENT_SLOTS;
+        for (int i = 0; i < CONTENT_SLOTS && start + i < listings.size(); i++) {
+            inventory.setItem(i, listingIcon(listings.get(start + i), false));
+        }
+        inventory.setItem(BACK_SLOT, navItem("ARROW", "&eBack to Market", "&7Return to all stalls."));
+        player.openInventory(inventory);
+    }
+
+    private void openListingManagement(Player player, MarketListing listing) {
+        Inventory inventory = Bukkit.createInventory(new ListingHolder(player.getUniqueId(), listing.id), MARKET_SIZE, color("&8Manage Listing"));
+        fillAll(inventory);
+        inventory.setItem(ITEM_PREVIEW_SLOT, listingIcon(listing, true));
+        inventory.setItem(STOCK_SLOT, navItem("CHEST", "&aManage Stock", "&7Click to open the 27-slot stock chest.", "&7Current stock: &e" + stockCount(listing)));
+        inventory.setItem(PRICE_SLOT, navItem("GOLD_INGOT", "&eSet Price Per Stack", "&7Current: &a$" + NumberUtil.format(listing.price), "&7Click and type a new price."));
+        inventory.setItem(STACK_SIZE_SLOT, navItem("PAPER", "&eSet Stack Size", "&7Current: &a" + listing.stackSize, "&7Click and type a new stack size."));
+        inventory.setItem(REMOVE_SLOT, navItem("BARRIER", "&cRemove Listing", "&7Returns all stock if you have space."));
+        inventory.setItem(BACK_SLOT, navItem("ARROW", "&eBack", "&7Return to your stall manager."));
+        player.openInventory(inventory);
+    }
+
+    private void openStock(Player player, MarketListing listing) {
+        Inventory inventory = Bukkit.createInventory(new StockHolder(player.getUniqueId(), listing.id), MAX_STOCK_SLOTS, color("&8Listing Stock"));
+        inventory.setContents(copyContents(listing.stock));
+        player.openInventory(inventory);
+    }
+
+    private void createListingFromCursorOrHand(Player player, ItemStack cursor) {
+        ItemStack source = isSellable(cursor) ? cursor : player.getInventory().getItemInMainHand();
+        if (!isSellable(source)) {
+            messageManager.send(player, "market.hold-item", null);
+            return;
+        }
+        MarketStall stall = stall(player.getUniqueId(), player.getName());
+        if (stall.listings.size() >= stall.slots) {
+            messageManager.send(player, "market.no-listing-slots", null);
+            return;
+        }
+        ItemStack display = source.clone();
+        display.setAmount(1);
+        MarketListing listing = new MarketListing(UUID.randomUUID(), display, BigDecimal.ONE, Math.min(source.getMaxStackSize(), Math.max(1, source.getAmount())));
+        stall.listings.put(listing.id, listing);
+        save();
+        playDing(player);
+        messageManager.send(player, "market.listing-created", null);
+        openListingManagement(player, listing);
+    }
+
+    private void removeListing(Player player, MarketListing listing) {
+        MarketStall stall = stall(player.getUniqueId(), player.getName());
+        for (ItemStack item : listing.stock) {
+            if (isSellable(item)) {
+                player.getInventory().addItem(item.clone()).values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+            }
+        }
+        stall.listings.remove(listing.id);
+        save();
+        playDing(player);
+        messageManager.send(player, "market.listing-removed", null);
+        openManage(player);
+    }
+
+    private void buyListing(Player buyer, MarketStall stall, MarketListing listing) {
+        if (buyer.getUniqueId().equals(stall.owner)) {
+            messageManager.send(buyer, "market.cannot-buy-own", null);
+            return;
+        }
+        if (stockCount(listing) < listing.stackSize) {
+            messageManager.send(buyer, "market.out-of-stock", null);
+            return;
+        }
+        Currency money = currencyManager.getCurrency("money");
+        if (money == null) {
+            money = currencyManager.getDefaultCurrency();
+        }
+        if (economyManager.getAvailableToSpend(buyer.getUniqueId(), money).compareTo(listing.price) < 0) {
+            messageManager.send(buyer, "insufficient-money", null);
+            return;
+        }
+        List<ItemStack> purchased = takeStock(listing, listing.stackSize);
+        if (!canFit(buyer.getInventory().getStorageContents(), purchased)) {
+            for (ItemStack item : purchased) {
+                addStock(listing, item);
+            }
+            messageManager.send(buyer, "market.inventory-full", null);
+            return;
+        }
+        for (ItemStack item : purchased) {
+            buyer.getInventory().addItem(item);
+        }
+        economyManager.subtractBalance(buyer.getUniqueId(), money, listing.price);
+        economyManager.addBalance(stall.owner, money, listing.price);
+        notifySeller(stall, buyer, listing);
+        playDing(buyer);
+        Player seller = Bukkit.getPlayer(stall.owner);
+        if (seller != null) {
+            playDing(seller);
+        }
+        save();
+        messageManager.send(buyer, "market.purchase-success", Map.of(
+            "item", displayName(listing.displayItem),
+            "amount", String.valueOf(listing.stackSize),
+            "price", NumberUtil.format(listing.price),
+            "seller", stall.ownerName));
+    }
+
+    private void notifySeller(MarketStall stall, Player buyer, MarketListing listing) {
+        Player seller = Bukkit.getPlayer(stall.owner);
+        Map<String, String> placeholders = Map.of(
+            "buyer", buyer.getName(),
+            "item", displayName(listing.displayItem),
+            "amount", String.valueOf(listing.stackSize),
+            "price", NumberUtil.format(listing.price));
+        if (seller != null) {
+            messageManager.send(seller, "market.seller-sale", placeholders);
+            return;
+        }
+        stall.offlineEarnings = stall.offlineEarnings.add(listing.price);
+    }
+
+    private List<ItemStack> takeStock(MarketListing listing, int amount) {
+        List<ItemStack> result = new ArrayList<>();
+        int remaining = amount;
+        for (int i = 0; i < listing.stock.length && remaining > 0; i++) {
+            ItemStack stock = listing.stock[i];
+            if (!isSellable(stock)) {
+                continue;
+            }
+            int taken = Math.min(stock.getAmount(), remaining);
+            ItemStack clone = stock.clone();
+            clone.setAmount(taken);
+            result.add(clone);
+            stock.setAmount(stock.getAmount() - taken);
+            if (stock.getAmount() <= 0) {
+                listing.stock[i] = null;
+            }
+            remaining -= taken;
+        }
+        return result;
+    }
+
+    private boolean canFit(ItemStack[] storage, List<ItemStack> items) {
+        Inventory inventory = Bukkit.createInventory(null, 36);
+        inventory.setStorageContents(storage);
+        for (ItemStack item : items) {
+            if (!inventory.addItem(item.clone()).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean addStock(MarketListing listing, ItemStack item) {
+        if (!isSellable(item)) {
+            return false;
+        }
+        HashMap<Integer, ItemStack> leftovers = new HashMap<>();
+        Inventory inventory = Bukkit.createInventory(null, MAX_STOCK_SLOTS);
+        inventory.setContents(copyContents(listing.stock));
+        leftovers.putAll(inventory.addItem(item.clone()));
+        listing.stock = copyContents(inventory.getContents());
+        return leftovers.isEmpty();
+    }
+
+    private List<MarketStall> filteredStalls(String search) {
+        String normalized = normalize(search);
+        return stalls.values().stream()
+            .filter(stall -> !stall.listings.isEmpty())
+            .filter(stall -> normalized.isEmpty() || searchableListings(stall, search).size() > 0)
+            .sorted(Comparator.comparing(stall -> stall.name.toLowerCase(Locale.US)))
+            .toList();
+    }
+
+    private List<MarketListing> searchableListings(MarketStall stall, String search) {
+        String normalized = normalize(search);
+        return sortedListings(stall).stream()
+            .filter(listing -> stockCount(listing) >= listing.stackSize)
+            .filter(listing -> normalized.isEmpty() || matches(listing.displayItem, normalized))
+            .toList();
+    }
+
+    private boolean matches(ItemStack item, String search) {
+        return normalize(displayName(item)).contains(search) || item.getType().name().toLowerCase(Locale.US).contains(search);
+    }
+
+    private List<MarketListing> sortedListings(MarketStall stall) {
+        return stall.listings.values().stream()
+            .sorted(Comparator.comparing(listing -> displayName(listing.displayItem).toLowerCase(Locale.US)))
+            .toList();
+    }
+
+    private MarketStall stall(UUID owner, String ownerName) {
+        MarketStall stall = stalls.computeIfAbsent(owner, id -> new MarketStall(id, ownerName, ownerName + "'s Stall", DEFAULT_STALL_SLOTS));
+        stall.ownerName = ownerName;
+        return stall;
+    }
+
+    private MarketListing listing(UUID owner, UUID listing) {
+        MarketStall stall = stalls.get(owner);
+        if (stall == null) {
+            return null;
+        }
+        return stall.listings.get(listing);
+    }
+
+    private ItemStack stallIcon(MarketStall stall, String search) {
+        ItemStack item = new ItemStack(Material.PLAYER_HEAD);
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof SkullMeta skullMeta) {
+            skullMeta.setOwningPlayer(Bukkit.getOfflinePlayer(stall.owner));
+            meta = skullMeta;
+        }
+        meta.displayName(color("&a" + stall.name));
+        List<Component> lore = new ArrayList<>();
+        lore.add(color("&7Owner: &f" + stall.ownerName));
+        lore.add(color("&7Items: &e" + searchableListings(stall, search).size()));
+        lore.add(color("&7Click to browse."));
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack listingIcon(MarketListing listing, boolean management) {
+        ItemStack item = listing.displayItem.clone();
+        item.setAmount(Math.min(Math.max(1, listing.stackSize), item.getMaxStackSize()));
+        ItemMeta meta = item.getItemMeta();
+        List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
+        lore.add(color("&8&m----------------"));
+        lore.add(color("&7Price per stack: &a$" + NumberUtil.format(listing.price)));
+        lore.add(color("&7Stack size: &e" + listing.stackSize));
+        lore.add(color("&7Stock: &e" + stockCount(listing)));
+        lore.add(color(management ? "&7Click to manage." : "&7Click to buy."));
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack navItem(String material, String name, String... lore) {
+        Material type = Material.matchMaterial(material);
+        ItemStack item = new ItemStack(type == null ? Material.STONE : type);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(color(name));
+        List<Component> lines = new ArrayList<>();
+        for (String line : lore) {
+            lines.add(color(line));
+        }
+        meta.lore(lines);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void fillBottom(Inventory inventory) {
+        ItemStack filler = navItem(FILLER.name(), " ");
+        for (int i = CONTENT_SLOTS; i < inventory.getSize(); i++) {
+            inventory.setItem(i, filler);
+        }
+    }
+
+    private void fillAll(Inventory inventory) {
+        ItemStack filler = navItem(FILLER.name(), " ");
+        for (int i = 0; i < inventory.getSize(); i++) {
+            inventory.setItem(i, filler);
+        }
+    }
+
+    private int stockCount(MarketListing listing) {
+        int total = 0;
+        for (ItemStack item : listing.stock) {
+            if (isSellable(item)) {
+                total += item.getAmount();
+            }
+        }
+        return total;
+    }
+
+    private boolean isSellable(ItemStack item) {
+        return item != null && item.getType() != Material.AIR && item.getType() != Material.BEDROCK && item.getAmount() > 0;
+    }
+
+    private String displayName(ItemStack item) {
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            return ChatColor.stripColor(item.getItemMeta().getDisplayName());
+        }
+        String[] parts = item.getType().name().toLowerCase(Locale.US).split("_");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (!builder.isEmpty()) {
+                builder.append(' ');
+            }
+            builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return builder.toString();
+    }
+
+    private String trimName(String name) {
+        String trimmed = name.trim();
+        if (trimmed.isEmpty()) {
+            return "Market Stall";
+        }
+        return trimmed.length() > 32 ? trimmed.substring(0, 32) : trimmed;
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.toLowerCase(Locale.US).trim();
+    }
+
+    private int maxPage(int size) {
+        return Math.max(1, (int) Math.ceil(size / (double) CONTENT_SLOTS));
+    }
+
+    private int clampPage(int page, int maxPage) {
+        return Math.max(0, Math.min(page, maxPage - 1));
+    }
+
+    private void playDing(Player player) {
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.2F);
+    }
+
+    private Component color(String text) {
+        return ColorUtil.colorize(text == null ? "" : text);
+    }
+
+    private ItemStack cloneOrNull(ItemStack item) {
+        return isSellable(item) ? item.clone() : null;
+    }
+
+    private ItemStack[] copyContents(ItemStack[] contents) {
+        ItemStack[] copy = new ItemStack[MAX_STOCK_SLOTS];
+        for (int i = 0; i < Math.min(MAX_STOCK_SLOTS, contents.length); i++) {
+            copy[i] = cloneOrNull(contents[i]);
+        }
+        return copy;
+    }
+
+    private void load() {
+        stalls.clear();
+        if (!file.exists()) {
+            return;
+        }
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+        ConfigurationSection root = config.getConfigurationSection("stalls");
+        if (root == null) {
+            return;
+        }
+        for (String uuidString : root.getKeys(false)) {
+            UUID owner;
+            try {
+                owner = UUID.fromString(uuidString);
+            } catch (IllegalArgumentException ex) {
+                continue;
+            }
+            ConfigurationSection section = root.getConfigurationSection(uuidString);
+            if (section == null) {
+                continue;
+            }
+            MarketStall stall = new MarketStall(owner,
+                section.getString("owner-name", "Unknown"),
+                section.getString("name", "Market Stall"),
+                section.getInt("slots", DEFAULT_STALL_SLOTS));
+            stall.offlineEarnings = new BigDecimal(section.getString("offline-earnings", "0"));
+            ConfigurationSection listingsSection = section.getConfigurationSection("listings");
+            if (listingsSection != null) {
+                for (String listingId : listingsSection.getKeys(false)) {
+                    MarketListing listing = loadListing(listingsSection.getConfigurationSection(listingId), listingId);
+                    if (listing != null) {
+                        stall.listings.put(listing.id, listing);
+                    }
+                }
+            }
+            stalls.put(owner, stall);
+        }
+    }
+
+    private MarketListing loadListing(ConfigurationSection section, String idString) {
+        if (section == null) {
+            return null;
+        }
+        UUID id;
+        try {
+            id = UUID.fromString(idString);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+        ItemStack displayItem = section.getItemStack("display-item");
+        if (!isSellable(displayItem)) {
+            return null;
+        }
+        MarketListing listing = new MarketListing(id, displayItem, new BigDecimal(section.getString("price", "1")), section.getInt("stack-size", 1));
+        ConfigurationSection stockSection = section.getConfigurationSection("stock");
+        if (stockSection != null) {
+            for (String slot : stockSection.getKeys(false)) {
+                try {
+                    int index = Integer.parseInt(slot);
+                    if (index >= 0 && index < MAX_STOCK_SLOTS) {
+                        listing.stock[index] = cloneOrNull(stockSection.getItemStack(slot));
+                    }
+                } catch (NumberFormatException ignored) {
+                    // ignored
+                }
+            }
+        }
+        return listing;
+    }
+
+    private static final class MarketStall {
+        private final UUID owner;
+        private String ownerName;
+        private String name;
+        private int slots;
+        private BigDecimal offlineEarnings = BigDecimal.ZERO;
+        private final Map<UUID, MarketListing> listings = new LinkedHashMap<>();
+
+        private MarketStall(UUID owner, String ownerName, String name, int slots) {
+            this.owner = owner;
+            this.ownerName = ownerName;
+            this.name = name;
+            this.slots = slots;
+        }
+    }
+
+    private static final class MarketListing {
+        private final UUID id;
+        private final ItemStack displayItem;
+        private BigDecimal price;
+        private int stackSize;
+        private ItemStack[] stock = new ItemStack[MAX_STOCK_SLOTS];
+
+        private MarketListing(UUID id, ItemStack displayItem, BigDecimal price, int stackSize) {
+            this.id = id;
+            this.displayItem = displayItem;
+            this.price = price;
+            this.stackSize = stackSize;
+        }
+    }
+
+    private record MarketHolder(int page, String search) implements InventoryHolder {
+        @Override public Inventory getInventory() { return null; }
+    }
+
+    private record StallHolder(UUID owner, int page, String search) implements InventoryHolder {
+        @Override public Inventory getInventory() { return null; }
+    }
+
+    private record ManageHolder(UUID owner, int page) implements InventoryHolder {
+        @Override public Inventory getInventory() { return null; }
+    }
+
+    private record ListingHolder(UUID owner, UUID listing) implements InventoryHolder {
+        @Override public Inventory getInventory() { return null; }
+    }
+
+    private record StockHolder(UUID owner, UUID listing) implements InventoryHolder {
+        @Override public Inventory getInventory() { return null; }
+    }
+
+    private record ChatInput(ChatInputType type, UUID listingId) {
+    }
+
+    private enum ChatInputType {
+        SEARCH,
+        PRICE,
+        STACK_SIZE
+    }
+}

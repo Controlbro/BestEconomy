@@ -41,6 +41,11 @@ max-money-reached: '&cThat player has reached the maximum &aMoney &cbalance.'
 min-money-reached: '&cYou cannot go below the minimum &aMoney &cbalance.'
 reload-complete: '&aConfiguration reloaded.'
 
+join:
+  enabled: true
+  message: '&8[&a+&8] &a{player} &7joined the server.'
+  first-time-message: '&8[&b+&8] &b{player} &7joined for the first time!'
+
 usage-eco: '&eUsage: /{currency} <give|take|reset|pay|balance> ...'
 usage-pay: '&eUsage: /pay <player> <amount> or /shardpay <player> <amount>'
 usage-balance: '&eUsage: /balance [player]'
@@ -66,6 +71,58 @@ eco:
 pay:
   sent: '&aYou paid {player} {coloredsymbol}&a{amount} {currency}&a.'
   received: '&aYou received {coloredsymbol}&a{amount} {currency} &afrom {player}.'
+
+
+settings:
+  scoreboard: '&aScoreboard is now &e{status}&a.'
+  keep-inventory: '&aKeep inventory is now &e{status}&a.'
+  pvp: '&aPVP is now &e{status}&a.'
+
+lock:
+  mode-enabled: '&aLocking mode enabled. Right-click a chest, door, furnace, shulker box, or other container to lock it. Run &e/lock &aagain to exit.'
+  mode-disabled: '&cLocking mode disabled.'
+  locked: '&aLocked successfully. Only you can access it now.'
+  already-owned: '&eThat block is already locked by you. Run /lock again to exit locking mode.'
+  already-locked: '&cThat block is already locked by &e{owner}&c.'
+  no-access: '&cThat is locked by &e{owner}&c.'
+  no-break: '&cYou cannot break that because it is locked by &e{owner}&c.'
+  removed: '&eRemoved lock because the locked block was broken.'
+
+mines:
+  usage: '&eUsage: /mines <shards bet>'
+  shards-missing: '&cThe Shards currency is not configured.'
+  started: '&aStarted Mines with a &5✦{bet} &abet. Find diamonds or cash out!'
+  cash-out: '&aYou cashed out &5✦{amount} &aat &ex{multiplier}&a!'
+  lost: '&cYou hit TNT and lost &5✦{bet}&c.'
+  announce-win: '&6&lMines &8» &e{player} &awon &5✦{amount} &7(x{multiplier})&a!'
+  announce-loss: '&6&lMines &8» &e{player} &chit TNT and lost &5✦{bet}&c!'
+
+market:
+  usage: '&eUsage: /market [create <name>|name <name>|manage|search <item>]'
+  create-usage: '&eUsage: /market create <stall name>'
+  name-usage: '&eUsage: /market name <stall name>'
+  search-usage: '&eUsage: /market search <item>'
+  give-slots-usage: '&eUsage: /givemarketslots <player> <amount>'
+  give-slots-success: '&aGave &e{amount} &amarket slot(s) to &e{player}&a.'
+  stall-created: '&aCreated your market stall: &e{name}&a.'
+  stall-renamed: '&aRenamed your market stall to &e{name}&a.'
+  search-prompt: '&eType an item name to search the market, or type &ccancel&e.'
+  price-prompt: '&eType the new price per stack in chat, or type &ccancel&e.'
+  stack-size-prompt: '&eType the stack size buyers receive, or type &ccancel&e.'
+  input-cancelled: '&cMarket input cancelled.'
+  price-set: '&aListing price set to &e${price}&a.'
+  stack-size-set: '&aListing stack size set to &e{size}&a.'
+  hold-item: '&cHold the item you want to sell or place it on your cursor first.'
+  no-listing-slots: '&cYour stall does not have any empty listing slots.'
+  listing-created: '&aListing created. Click the chest to add stock.'
+  listing-removed: '&cListing removed and stock returned.'
+  cannot-buy-own: '&cYou cannot buy from your own stall.'
+  out-of-stock: '&cThat listing is out of stock.'
+  inventory-full: '&cYour inventory does not have enough space for that purchase.'
+  bedrock-blocked: '&cBedrock cannot be sold in market stalls.'
+  purchase-success: '&aBought &e{amount}x {item} &afrom &e{seller} &afor &e${price}&a.'
+  seller-sale: '&a{buyer} bought &e{amount}x {item} &afrom your stall for &e${price}&a.'
+  offline-earnings: '&aYour stall made &e${amount} &awhile you were away!'
 
 baltop:
   header: '&bTop &aMoney &7(Page {page}/{maxpage})'

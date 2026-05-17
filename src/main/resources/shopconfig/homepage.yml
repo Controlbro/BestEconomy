@@ -44,3 +44,5 @@ shard-shop-button:
   lore:
     - "&7Click to get the Shard Shop link."
     - "&dhttps://shop.controlbro.com"
+  url: "https://shop.controlbro.com"
+  message: "&5Shard Shop: &d{url}"
