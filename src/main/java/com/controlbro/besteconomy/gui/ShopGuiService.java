@@ -7,6 +7,7 @@ import com.controlbro.besteconomy.message.MessageManager;
 import com.controlbro.besteconomy.util.ColorUtil;
 import com.controlbro.besteconomy.util.NumberUtil;
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,7 +18,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -39,7 +39,8 @@ public class ShopGuiService implements Listener {
     private static final int BUY_SLOT = 22;
     private static final int CANCEL_SLOT = 49;
     private static final String DEFAULT_FILL_ITEM = "BLACK_STAINED_GLASS_PANE";
-    private static final String SHARD_SHOP_URL = "https://shop.controlbro.com";
+    private static final String DEFAULT_SHARD_SHOP_URL = "https://shop.controlbro.com";
+    private static final String DEFAULT_SHARD_SHOP_MESSAGE = "&5Shard Shop: &d{url}";
     private final JavaPlugin plugin;
     private final EconomyManager economyManager;
     private final CurrencyManager currencyManager;
@@ -67,8 +68,29 @@ public class ShopGuiService implements Listener {
         saveDefaultShopConfig("shopconfig/sections/food.yml");
         saveDefaultShopConfig("shopconfig/sections/ore.yml");
         homeConfig = YamlConfiguration.loadConfiguration(new File(configFolder, "homepage.yml"));
+        ensureShardShopMessageDefaults();
         sellConfig = YamlConfiguration.loadConfiguration(new File(configFolder, "sell.yml"));
         sections.clear();
+    }
+
+    private void ensureShardShopMessageDefaults() {
+        boolean changed = false;
+        if (!homeConfig.isSet("shard-shop-button.url")) {
+            homeConfig.set("shard-shop-button.url", DEFAULT_SHARD_SHOP_URL);
+            changed = true;
+        }
+        if (!homeConfig.isSet("shard-shop-button.message")) {
+            homeConfig.set("shard-shop-button.message", DEFAULT_SHARD_SHOP_MESSAGE);
+            changed = true;
+        }
+        if (!changed) {
+            return;
+        }
+        try {
+            homeConfig.save(new File(configFolder, "homepage.yml"));
+        } catch (IOException ignored) {
+            // ignored
+        }
     }
 
     public void openHome(Player player) {
@@ -181,7 +203,7 @@ public class ShopGuiService implements Listener {
         ConfigurationSection shardShop = homeConfig.getConfigurationSection("shard-shop-button");
         if (shardShop != null && shardShop.getBoolean("enabled", false) && event.getRawSlot() == shardShop.getInt("slot", -1)) {
             player.closeInventory();
-            player.sendMessage(Component.text("Shard Shop: ").append(Component.text(SHARD_SHOP_URL).clickEvent(ClickEvent.openUrl(SHARD_SHOP_URL))));
+            sendShardShopMessage(player, shardShop);
             return;
         }
         ConfigurationSection sectionRoot = homeConfig.getConfigurationSection("sections");
@@ -197,6 +219,13 @@ public class ShopGuiService implements Listener {
                 return;
             }
         }
+    }
+
+    private void sendShardShopMessage(Player player, ConfigurationSection shardShop) {
+        String url = shardShop.getString("url", DEFAULT_SHARD_SHOP_URL);
+        String message = shardShop.getString("message", DEFAULT_SHARD_SHOP_MESSAGE);
+        String formatted = messageManager.applyPlaceholders(message, player, Map.of("url", url));
+        player.sendMessage(ColorUtil.colorize(formatted));
     }
 
     private void handleSectionClick(InventoryClickEvent event, Player player, SectionConfig sectionConfig) {
