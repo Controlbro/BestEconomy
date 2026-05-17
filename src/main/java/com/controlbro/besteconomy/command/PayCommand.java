@@ -112,15 +112,7 @@ public class PayCommand implements CommandExecutor, TabCompleter {
     }
 
     private BigDecimal parseAmount(String input) {
-        try {
-            BigDecimal amount = new BigDecimal(input);
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                return null;
-            }
-            return amount;
-        } catch (NumberFormatException ex) {
-            return null;
-        }
+        return NumberUtil.parsePositiveAmount(input);
     }
 
     @Override

@@ -12,10 +12,12 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -28,7 +30,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -45,10 +49,12 @@ public class MarketService implements Listener {
     private static final int DEFAULT_STALL_SLOTS = 10;
     private static final int MAX_STOCK_SLOTS = 27;
     private static final int PREVIOUS_SLOT = 45;
+    private static final int REFRESH_SLOT = 47;
     private static final int SEARCH_SLOT = 49;
     private static final int MANAGE_SLOT = 51;
     private static final int NEXT_SLOT = 53;
     private static final int BACK_SLOT = 45;
+    private static final int RENAME_STALL_SLOT = 47;
     private static final int CREATE_LISTING_SLOT = 49;
     private static final int ITEM_PREVIEW_SLOT = 13;
     private static final int STOCK_SLOT = 22;
@@ -64,6 +70,7 @@ public class MarketService implements Listener {
     private final File file;
     private final Map<UUID, MarketStall> stalls = new LinkedHashMap<>();
     private final Map<UUID, ChatInput> chatInputs = new HashMap<>();
+    private final Set<UUID> suppressedMarketCloses = new HashSet<>();
 
     public MarketService(JavaPlugin plugin, EconomyManager economyManager, CurrencyManager currencyManager, MessageManager messageManager) {
         this.plugin = plugin;
@@ -86,10 +93,11 @@ public class MarketService implements Listener {
             inventory.setItem(i, stallIcon(stall, search));
         }
         inventory.setItem(PREVIOUS_SLOT, navItem("ARROW", "&ePrevious Page", "&7Go to page " + safePage));
+        inventory.setItem(REFRESH_SLOT, navItem("CLOCK", "&aRefresh Market", "&7Click to reload the latest market stalls."));
         inventory.setItem(SEARCH_SLOT, navItem("COMPASS", "&bSearch Items", "&7Click and type an item name in chat."));
         inventory.setItem(MANAGE_SLOT, navItem("CHEST", "&aManage Your Stall", "&7Create or edit your own stall."));
         inventory.setItem(NEXT_SLOT, navItem("ARROW", "&eNext Page", "&7Go to page " + (safePage + 2)));
-        player.openInventory(inventory);
+        openMarketInventory(player, inventory);
     }
 
     public void createStall(Player player, String name) {
@@ -130,9 +138,10 @@ public class MarketService implements Listener {
             }
         }
         inventory.setItem(BACK_SLOT, navItem("ARROW", safePage > 0 ? "&ePrevious Page" : "&eBack to Market", safePage > 0 ? "&7Go to the previous stall slots." : "&7Return to all stalls."));
+        inventory.setItem(RENAME_STALL_SLOT, navItem("NAME_TAG", "&bRename Stall", "&7Current: &f" + stall.name, "&7Click and type a new market name."));
         inventory.setItem(CREATE_LISTING_SLOT, navItem("EMERALD", "&aAdd Held Item", "&7Hold an item and click to create a listing.", "&7You have &e" + stall.slots + " &7listing slots."));
         inventory.setItem(NEXT_SLOT, navItem("ARROW", "&eNext Page", "&7Go to the next stall slots."));
-        player.openInventory(inventory);
+        openMarketInventory(player, inventory);
     }
 
     public void giveSlots(OfflinePlayer target, int amount) {
@@ -199,11 +208,8 @@ public class MarketService implements Listener {
             return;
         }
         InventoryHolder holder = event.getInventory().getHolder();
-        if (holder instanceof StockHolder) {
-            if (event.getCursor() != null && event.getCursor().getType() == Material.BEDROCK) {
-                event.setCancelled(true);
-                messageManager.send(player, "market.bedrock-blocked", null);
-            }
+        if (holder instanceof StockHolder stockHolder) {
+            handleStockClick(event, player, stockHolder);
             return;
         }
         if (holder instanceof MarketHolder marketHolder) {
@@ -218,25 +224,77 @@ public class MarketService implements Listener {
     }
 
     @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        InventoryHolder holder = event.getInventory().getHolder();
+        if (!(holder instanceof StockHolder stockHolder)) {
+            return;
+        }
+        if (event.getRawSlots().stream().noneMatch(slot -> slot >= 0 && slot < MAX_STOCK_SLOTS)) {
+            return;
+        }
+        MarketListing listing = listing(stockHolder.owner, stockHolder.listing);
+        if (listing == null || event.getNewItems().values().stream().anyMatch(item -> !isMatchingStockItem(item, listing))) {
+            event.setCancelled(true);
+            messageManager.send(player, "market.stock-item-mismatch", null);
+        }
+    }
+
+    @EventHandler
     public void onClose(InventoryCloseEvent event) {
         InventoryHolder holder = event.getInventory().getHolder();
+        if (!(event.getPlayer() instanceof Player player)) {
+            return;
+        }
         if (holder instanceof StockHolder stockHolder) {
             MarketListing listing = listing(stockHolder.owner, stockHolder.listing);
             if (listing == null) {
+                returnItems(player, event.getInventory().getContents());
+                reopenPreviousMarketPage(player, holder);
                 return;
             }
             ItemStack[] contents = event.getInventory().getContents();
             for (int i = 0; i < Math.min(MAX_STOCK_SLOTS, contents.length); i++) {
                 ItemStack item = contents[i];
-                listing.stock[i] = cloneOrNull(item);
-                if (item != null && item.getType() == Material.BEDROCK && event.getPlayer() instanceof Player player) {
-                    player.getInventory().addItem(item.clone()).values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+                if (isMatchingStockItem(item, listing)) {
+                    listing.stock[i] = item.clone();
+                } else {
+                    listing.stock[i] = null;
+                    returnItem(player, item);
                 }
             }
             save();
-            if (event.getPlayer() instanceof Player player) {
-                playDing(player);
-            }
+            playDing(player);
+            reopenPreviousMarketPage(player, holder);
+            return;
+        }
+        if (isMarketHolder(holder)) {
+            reopenPreviousMarketPage(player, holder);
+        }
+    }
+
+    private void handleStockClick(InventoryClickEvent event, Player player, StockHolder holder) {
+        MarketListing listing = listing(holder.owner, holder.listing);
+        if (listing == null) {
+            event.setCancelled(true);
+            messageManager.send(player, "market.stock-item-mismatch", null);
+            return;
+        }
+        ItemStack attempted = null;
+        if (event.getClick() == ClickType.NUMBER_KEY && event.getRawSlot() >= 0 && event.getRawSlot() < MAX_STOCK_SLOTS) {
+            attempted = event.getView().getBottomInventory().getItem(event.getHotbarButton());
+        } else if (event.getClick() == ClickType.SWAP_OFFHAND && event.getRawSlot() >= 0 && event.getRawSlot() < MAX_STOCK_SLOTS) {
+            attempted = player.getInventory().getItemInOffHand();
+        } else if (event.isShiftClick() && event.getRawSlot() >= MAX_STOCK_SLOTS) {
+            attempted = event.getCurrentItem();
+        } else if (event.getRawSlot() >= 0 && event.getRawSlot() < MAX_STOCK_SLOTS) {
+            attempted = event.getCursor();
+        }
+        if (isSellable(attempted) && !isMatchingStockItem(attempted, listing)) {
+            event.setCancelled(true);
+            messageManager.send(player, "market.stock-item-mismatch", null);
         }
     }
 
@@ -250,8 +308,14 @@ public class MarketService implements Listener {
             openMarket(player, holder.page + 1, holder.search);
             return;
         }
+        if (event.getRawSlot() == REFRESH_SLOT) {
+            openMarket(player, holder.page, holder.search);
+            playDing(player);
+            return;
+        }
         if (event.getRawSlot() == SEARCH_SLOT) {
             chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.SEARCH, null));
+            suppressNextMarketClose(player);
             player.closeInventory();
             messageManager.send(player, "market.search-prompt", null);
             return;
@@ -305,6 +369,13 @@ public class MarketService implements Listener {
             openManage(player, holder.page + 1);
             return;
         }
+        if (event.getRawSlot() == RENAME_STALL_SLOT) {
+            chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.NAME, null));
+            suppressNextMarketClose(player);
+            player.closeInventory();
+            messageManager.send(player, "market.name-prompt", null);
+            return;
+        }
         if (event.getRawSlot() == CREATE_LISTING_SLOT) {
             createListingFromCursorOrHand(player, event.getCursor());
             return;
@@ -340,12 +411,14 @@ public class MarketService implements Listener {
         }
         if (event.getRawSlot() == PRICE_SLOT) {
             chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.PRICE, listing.id));
+            suppressNextMarketClose(player);
             player.closeInventory();
             messageManager.send(player, "market.price-prompt", null);
             return;
         }
         if (event.getRawSlot() == STACK_SIZE_SLOT) {
             chatInputs.put(player.getUniqueId(), new ChatInput(ChatInputType.STACK_SIZE, listing.id));
+            suppressNextMarketClose(player);
             player.closeInventory();
             messageManager.send(player, "market.stack-size-prompt", null);
             return;
@@ -368,25 +441,30 @@ public class MarketService implements Listener {
             openMarket(player, 0, message);
             return;
         }
+        if (input.type == ChatInputType.NAME) {
+            MarketStall stall = stall(player.getUniqueId(), player.getName());
+            stall.name = trimName(message);
+            save();
+            playDing(player);
+            messageManager.send(player, "market.stall-renamed", Map.of("name", stall.name));
+            openManage(player);
+            return;
+        }
         MarketListing listing = listing(player.getUniqueId(), input.listingId);
         if (listing == null) {
             return;
         }
         if (input.type == ChatInputType.PRICE) {
-            try {
-                BigDecimal price = new BigDecimal(message);
-                if (price.compareTo(BigDecimal.ZERO) <= 0) {
-                    messageManager.send(player, "invalid-amount", null);
-                    openListingManagement(player, listing);
-                    return;
-                }
-                listing.price = price;
-                save();
-                playDing(player);
-                messageManager.send(player, "market.price-set", Map.of("price", NumberUtil.format(price)));
-            } catch (NumberFormatException ex) {
+            BigDecimal price = NumberUtil.parsePositiveAmount(message);
+            if (price == null) {
                 messageManager.send(player, "invalid-amount", null);
+                openListingManagement(player, listing);
+                return;
             }
+            listing.price = price;
+            save();
+            playDing(player);
+            messageManager.send(player, "market.price-set", Map.of("price", NumberUtil.format(price)));
             openListingManagement(player, listing);
             return;
         }
@@ -420,7 +498,7 @@ public class MarketService implements Listener {
             inventory.setItem(i, listingIcon(listings.get(start + i), false));
         }
         inventory.setItem(BACK_SLOT, navItem("ARROW", "&eBack to Market", "&7Return to all stalls."));
-        player.openInventory(inventory);
+        openMarketInventory(player, inventory);
     }
 
     private void openListingManagement(Player player, MarketListing listing) {
@@ -432,13 +510,13 @@ public class MarketService implements Listener {
         inventory.setItem(STACK_SIZE_SLOT, navItem("PAPER", "&eSet Stack Size", "&7Current: &a" + listing.stackSize, "&7Click and type a new stack size."));
         inventory.setItem(REMOVE_SLOT, navItem("BARRIER", "&cRemove Listing", "&7Returns all stock if you have space."));
         inventory.setItem(BACK_SLOT, navItem("ARROW", "&eBack", "&7Return to your stall manager."));
-        player.openInventory(inventory);
+        openMarketInventory(player, inventory);
     }
 
     private void openStock(Player player, MarketListing listing) {
         Inventory inventory = Bukkit.createInventory(new StockHolder(player.getUniqueId(), listing.id), MAX_STOCK_SLOTS, color("&8Listing Stock"));
         inventory.setContents(copyContents(listing.stock));
-        player.openInventory(inventory);
+        openMarketInventory(player, inventory);
     }
 
     private void createListingFromCursorOrHand(Player player, ItemStack cursor) {
@@ -539,7 +617,7 @@ public class MarketService implements Listener {
         int remaining = amount;
         for (int i = 0; i < listing.stock.length && remaining > 0; i++) {
             ItemStack stock = listing.stock[i];
-            if (!isSellable(stock)) {
+            if (!isMatchingStockItem(stock, listing)) {
                 continue;
             }
             int taken = Math.min(stock.getAmount(), remaining);
@@ -567,7 +645,7 @@ public class MarketService implements Listener {
     }
 
     private boolean addStock(MarketListing listing, ItemStack item) {
-        if (!isSellable(item)) {
+        if (!isMatchingStockItem(item, listing)) {
             return false;
         }
         HashMap<Integer, ItemStack> leftovers = new HashMap<>();
@@ -679,10 +757,94 @@ public class MarketService implements Listener {
         }
     }
 
+    private void openMarketInventory(Player player, Inventory inventory) {
+        if (isMarketHolder(player.getOpenInventory().getTopInventory().getHolder())) {
+            suppressNextMarketClose(player);
+        }
+        player.openInventory(inventory);
+    }
+
+    private void suppressNextMarketClose(Player player) {
+        suppressedMarketCloses.add(player.getUniqueId());
+    }
+
+    private void reopenPreviousMarketPage(Player player, InventoryHolder holder) {
+        if (suppressedMarketCloses.remove(player.getUniqueId())) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> openPreviousMarketPage(player, holder));
+    }
+
+    private void openPreviousMarketPage(Player player, InventoryHolder holder) {
+        if (!player.isOnline()) {
+            return;
+        }
+        if (holder instanceof MarketHolder marketHolder) {
+            if (marketHolder.page > 0) {
+                openMarket(player, marketHolder.page - 1, marketHolder.search);
+            }
+            return;
+        }
+        if (holder instanceof StallHolder stallHolder) {
+            MarketStall stall = stalls.get(stallHolder.owner);
+            if (stall != null && stallHolder.page > 0) {
+                openStall(player, stall, stallHolder.page - 1, stallHolder.search);
+            } else {
+                openMarket(player, 0, stallHolder.search);
+            }
+            return;
+        }
+        if (holder instanceof ManageHolder manageHolder) {
+            if (manageHolder.page > 0) {
+                openManage(player, manageHolder.page - 1);
+            } else {
+                openMarket(player, 0, null);
+            }
+            return;
+        }
+        if (holder instanceof ListingHolder) {
+            openManage(player);
+            return;
+        }
+        if (holder instanceof StockHolder stockHolder) {
+            MarketListing listing = listing(stockHolder.owner, stockHolder.listing);
+            if (listing != null) {
+                openListingManagement(player, listing);
+            } else {
+                openManage(player);
+            }
+        }
+    }
+
+    private boolean isMarketHolder(InventoryHolder holder) {
+        return holder instanceof MarketHolder
+            || holder instanceof StallHolder
+            || holder instanceof ManageHolder
+            || holder instanceof ListingHolder
+            || holder instanceof StockHolder;
+    }
+
+    private void returnItems(Player player, ItemStack[] items) {
+        for (ItemStack item : items) {
+            returnItem(player, item);
+        }
+    }
+
+    private void returnItem(Player player, ItemStack item) {
+        if (!isSellable(item)) {
+            return;
+        }
+        player.getInventory().addItem(item.clone()).values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+    }
+
+    private boolean isMatchingStockItem(ItemStack item, MarketListing listing) {
+        return isSellable(item) && item.isSimilar(listing.displayItem);
+    }
+
     private int stockCount(MarketListing listing) {
         int total = 0;
         for (ItemStack item : listing.stock) {
-            if (isSellable(item)) {
+            if (isMatchingStockItem(item, listing)) {
                 total += item.getAmount();
             }
         }
@@ -808,7 +970,8 @@ public class MarketService implements Listener {
                 try {
                     int index = Integer.parseInt(slot);
                     if (index >= 0 && index < MAX_STOCK_SLOTS) {
-                        listing.stock[index] = cloneOrNull(stockSection.getItemStack(slot));
+                        ItemStack stockItem = stockSection.getItemStack(slot);
+                        listing.stock[index] = isMatchingStockItem(stockItem, listing) ? stockItem.clone() : null;
                     }
                 } catch (NumberFormatException ignored) {
                     // ignored
@@ -874,6 +1037,7 @@ public class MarketService implements Listener {
 
     private enum ChatInputType {
         SEARCH,
+        NAME,
         PRICE,
         STACK_SIZE
     }
