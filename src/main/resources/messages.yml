@@ -41,6 +41,11 @@ max-money-reached: '&cThat player has reached the maximum &aMoney &cbalance.'
 min-money-reached: '&cYou cannot go below the minimum &aMoney &cbalance.'
 reload-complete: '&aConfiguration reloaded.'
 
+join:
+  enabled: true
+  message: '&8[&a+&8] &a{player} &7joined the server.'
+  first-time-message: '&8[&b+&8] &b{player} &7joined for the first time!'
+
 usage-eco: '&eUsage: /{currency} <give|take|reset|pay|balance> ...'
 usage-pay: '&eUsage: /pay <player> <amount> or /shardpay <player> <amount>'
 usage-balance: '&eUsage: /balance [player]'

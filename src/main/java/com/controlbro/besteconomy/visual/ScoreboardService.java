@@ -2,6 +2,7 @@ package com.controlbro.besteconomy.visual;
 
 import com.controlbro.besteconomy.placeholder.InternalPlaceholderService;
 import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ public class ScoreboardService implements Listener {
         }
         Scoreboard scoreboard = manager.getNewScoreboard();
         Objective objective = scoreboard.registerNewObjective(OBJECTIVE_NAME, "dummy", legacy(apply(player, config.getString("title", "&aBestEconomy"))));
+        hideScoreNumbers(objective);
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         List<String> lines = new ArrayList<>(config.getStringList("lines"));
         if (lines.size() > 15) {
@@ -96,6 +98,16 @@ public class ScoreboardService implements Listener {
             objective.getScore(entry).setScore(score--);
         }
         player.setScoreboard(scoreboard);
+    }
+
+    private void hideScoreNumbers(Objective objective) {
+        try {
+            Class<?> numberFormatClass = Class.forName("io.papermc.paper.scoreboard.numbers.NumberFormat");
+            Object blankFormat = numberFormatClass.getMethod("blank").invoke(null);
+            objective.getClass().getMethod("numberFormat", numberFormatClass).invoke(objective, blankFormat);
+        } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
+            // Scoreboard number formatting is only available on newer Paper versions.
+        }
     }
 
     private String apply(Player player, String text) {
