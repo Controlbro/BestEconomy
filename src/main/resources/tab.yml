@@ -18,13 +18,13 @@ enabled: true
 update-interval-ticks: 40
 players-online:
   enabled: true
-  format: '&a{players_online}&7/&a{max_players}'
+  format: '&b{players_online}&7/&b{max_players}'
 header:
-  - '&a&lBestEconomy'
-  - '&7Online: {players_online_display} &8| &7TPS: &a{tps}'
+  - '&f&lSheep&b&lSquid&f&l.net'
+  - ' '
 footer:
-  - '&7Money: &a${money} &8| &7Shards: &5✦{shards}'
-  - '&7Ping: &b{ping}ms &8| &7Playtime: &e{playtime}'
+  - ' '
+  - '&7Online: {players_online_display}'
 
 player-name:
   enabled: true
@@ -46,5 +46,5 @@ prefixes:
     priority: 80
   default:
     permission: ''
-    prefix: '&7'
+    prefix: '&7[&6Builder&7] '
     priority: 0
