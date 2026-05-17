@@ -17,6 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
+import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 
@@ -91,22 +92,59 @@ public class ScoreboardService implements Listener {
         if (lines.size() > 15) {
             lines = lines.subList(0, 15);
         }
-        int score = lines.size();
+        int scoreValue = lines.size();
         int duplicate = 0;
         for (String line : lines) {
             String entry = uniqueEntry(legacy(apply(player, line)), duplicate++);
-            objective.getScore(entry).setScore(score--);
+            Score score = objective.getScore(entry);
+            score.setScore(scoreValue--);
+            hideScoreNumbers(score);
         }
         player.setScoreboard(scoreboard);
     }
 
     private void hideScoreNumbers(Objective objective) {
+        Class<?> numberFormatClass = numberFormatClass();
+        Object blankFormat = blankNumberFormat(numberFormatClass);
+        if (blankFormat == null) {
+            return;
+        }
         try {
-            Class<?> numberFormatClass = Class.forName("io.papermc.paper.scoreboard.numbers.NumberFormat");
-            Object blankFormat = numberFormatClass.getMethod("blank").invoke(null);
-            objective.getClass().getMethod("numberFormat", numberFormatClass).invoke(objective, blankFormat);
-        } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
+            Objective.class.getMethod("numberFormat", numberFormatClass).invoke(objective, blankFormat);
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
             // Scoreboard number formatting is only available on newer Paper versions.
+        }
+    }
+
+    private void hideScoreNumbers(Score score) {
+        Class<?> numberFormatClass = numberFormatClass();
+        Object blankFormat = blankNumberFormat(numberFormatClass);
+        if (blankFormat == null) {
+            return;
+        }
+        try {
+            Score.class.getMethod("numberFormat", numberFormatClass).invoke(score, blankFormat);
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
+            // Per-score number formatting is only available on newer Paper versions.
+        }
+    }
+
+    private Object blankNumberFormat(Class<?> numberFormatClass) {
+        if (numberFormatClass == null) {
+            return null;
+        }
+        try {
+            return numberFormatClass.getMethod("blank").invoke(null);
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
+            return null;
+        }
+    }
+
+    private Class<?> numberFormatClass() {
+        try {
+            return Class.forName("io.papermc.paper.scoreboard.numbers.NumberFormat");
+        } catch (ClassNotFoundException ignored) {
+            return null;
         }
     }
 
