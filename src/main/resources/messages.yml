@@ -73,6 +73,30 @@ pay:
   received: '&aYou received {coloredsymbol}&a{amount} {currency} &afrom {player}.'
 
 
+settings:
+  scoreboard: '&aScoreboard is now &e{status}&a.'
+  keep-inventory: '&aKeep inventory is now &e{status}&a.'
+  pvp: '&aPVP is now &e{status}&a.'
+
+lock:
+  mode-enabled: '&aLocking mode enabled. Right-click a chest, door, furnace, shulker box, or other container to lock it. Run &e/lock &aagain to exit.'
+  mode-disabled: '&cLocking mode disabled.'
+  locked: '&aLocked successfully. Only you can access it now.'
+  already-owned: '&eThat block is already locked by you. Run /lock again to exit locking mode.'
+  already-locked: '&cThat block is already locked by &e{owner}&c.'
+  no-access: '&cThat is locked by &e{owner}&c.'
+  no-break: '&cYou cannot break that because it is locked by &e{owner}&c.'
+  removed: '&eRemoved lock because the locked block was broken.'
+
+mines:
+  usage: '&eUsage: /mines <shards bet>'
+  shards-missing: '&cThe Shards currency is not configured.'
+  started: '&aStarted Mines with a &5✦{bet} &abet. Find diamonds or cash out!'
+  cash-out: '&aYou cashed out &5✦{amount} &aat &ex{multiplier}&a!'
+  lost: '&cYou hit TNT and lost &5✦{bet}&c.'
+  announce-win: '&6&lMines &8» &e{player} &awon &5✦{amount} &7(x{multiplier})&a!'
+  announce-loss: '&6&lMines &8» &e{player} &chit TNT and lost &5✦{bet}&c!'
+
 market:
   usage: '&eUsage: /market [create <name>|name <name>|manage|search <item>]'
   create-usage: '&eUsage: /market create <stall name>'

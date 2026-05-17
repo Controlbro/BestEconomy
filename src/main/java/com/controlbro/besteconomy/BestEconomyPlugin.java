@@ -17,11 +17,18 @@ import com.controlbro.besteconomy.gui.ShopCommand;
 import com.controlbro.besteconomy.gui.ShopGuiService;
 import com.controlbro.besteconomy.gui.ValuesCommand;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
+import com.controlbro.besteconomy.lock.LockCommand;
+import com.controlbro.besteconomy.lock.LockService;
 import com.controlbro.besteconomy.market.GiveMarketSlotsCommand;
 import com.controlbro.besteconomy.market.MarketCommand;
 import com.controlbro.besteconomy.market.MarketService;
 import com.controlbro.besteconomy.message.MessageManager;
+import com.controlbro.besteconomy.mines.MinesCommand;
+import com.controlbro.besteconomy.mines.MinesService;
 import com.controlbro.besteconomy.placeholder.InternalPlaceholderService;
+import com.controlbro.besteconomy.settings.SettingsCommand;
+import com.controlbro.besteconomy.settings.SettingsMenuService;
+import com.controlbro.besteconomy.settings.UserSettingsService;
 import com.controlbro.besteconomy.shop.ShopAccountCommand;
 import com.controlbro.besteconomy.shop.ShopAccountService;
 import com.controlbro.besteconomy.shop.ShopAdminCommand;
@@ -53,6 +60,10 @@ public class BestEconomyPlugin extends JavaPlugin {
     private ShopPendingCommandService shopPendingCommandService;
     private ShopGuiService shopGuiService;
     private MarketService marketService;
+    private MinesService minesService;
+    private UserSettingsService userSettingsService;
+    private SettingsMenuService settingsMenuService;
+    private LockService lockService;
     private ShopAccountCommand registeredShopAccountCommand;
     private ScoreboardService scoreboardService;
     private TabListService tabListService;
@@ -81,6 +92,9 @@ public class BestEconomyPlugin extends JavaPlugin {
         startWebshopIntegration();
         startShopGui();
         startMarket();
+        startMines();
+        startSettings();
+        startLocks();
         startVisuals();
     }
 
@@ -98,6 +112,15 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (marketService != null) {
             marketService.save();
         }
+        if (minesService != null) {
+            minesService.refundActiveGames();
+        }
+        if (userSettingsService != null) {
+            userSettingsService.save();
+        }
+        if (lockService != null) {
+            lockService.save();
+        }
         stopVisuals();
         economyManager.save();
         economyManager.shutdown();
@@ -113,6 +136,19 @@ public class BestEconomyPlugin extends JavaPlugin {
             marketService.save();
             marketService = null;
         }
+        if (minesService != null) {
+            minesService.refundActiveGames();
+            minesService = null;
+        }
+        if (userSettingsService != null) {
+            userSettingsService.save();
+            userSettingsService = null;
+        }
+        if (lockService != null) {
+            lockService.save();
+            lockService = null;
+        }
+        settingsMenuService = null;
         if (economyManager != null) {
             economyManager.save();
             economyManager.shutdown();
@@ -141,12 +177,15 @@ public class BestEconomyPlugin extends JavaPlugin {
         startWebshopIntegration();
         startShopGui();
         startMarket();
+        startMines();
+        startSettings();
+        startLocks();
         startVisuals();
     }
 
     private void startVisuals() {
         stopVisuals();
-        scoreboardService = new ScoreboardService(this, placeholderService);
+        scoreboardService = new ScoreboardService(this, placeholderService, userSettingsService);
         tabListService = new TabListService(this, placeholderService);
         scoreboardService.start();
         tabListService.start();
@@ -255,6 +294,47 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
     }
 
+    private void startMines() {
+        if (minesService != null) {
+            HandlerList.unregisterAll(minesService);
+            minesService.refundActiveGames();
+        }
+        minesService = new MinesService(this, economyManager, currencyManager, messageManager);
+        Bukkit.getPluginManager().registerEvents(minesService, this);
+        PluginCommand mines = getCommand("mines");
+        if (mines != null) {
+            MinesCommand minesCommand = new MinesCommand(minesService, messageManager);
+            mines.setExecutor(minesCommand);
+            mines.setTabCompleter(minesCommand);
+        }
+    }
+
+    private void startSettings() {
+        if (settingsMenuService != null) {
+            HandlerList.unregisterAll(settingsMenuService);
+        }
+        userSettingsService = new UserSettingsService(this);
+        settingsMenuService = new SettingsMenuService(userSettingsService, messageManager);
+        Bukkit.getPluginManager().registerEvents(settingsMenuService, this);
+        PluginCommand settings = getCommand("settings");
+        if (settings != null) {
+            settings.setExecutor(new SettingsCommand(settingsMenuService, messageManager));
+        }
+    }
+
+    private void startLocks() {
+        if (lockService != null) {
+            HandlerList.unregisterAll(lockService);
+            lockService.save();
+        }
+        lockService = new LockService(this, messageManager);
+        Bukkit.getPluginManager().registerEvents(lockService, this);
+        PluginCommand lock = getCommand("lock");
+        if (lock != null) {
+            lock.setExecutor(new LockCommand(lockService, messageManager));
+        }
+    }
+
     private void startShopGui() {
         if (shopGuiService != null) {
             HandlerList.unregisterAll(shopGuiService);
@@ -334,6 +414,10 @@ public class BestEconomyPlugin extends JavaPlugin {
         getConfig().addDefault("webshop.pending-check-seconds", 60);
         getConfig().addDefault("webshop.max-commands-per-check", 50);
         getConfig().addDefault("webshop.api-key", "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET");
+        getConfig().addDefault("mines.mine-count", 5);
+        getConfig().addDefault("mines.multiplier-increase", "0.25");
+        getConfig().addDefault("settings.keep-inventory-default", false);
+        getConfig().addDefault("settings.pvp-default", true);
         getConfig().options().copyDefaults(true);
         saveConfig();
     }

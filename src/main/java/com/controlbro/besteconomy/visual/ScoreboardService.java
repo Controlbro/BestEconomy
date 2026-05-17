@@ -1,6 +1,7 @@
 package com.controlbro.besteconomy.visual;
 
 import com.controlbro.besteconomy.placeholder.InternalPlaceholderService;
+import com.controlbro.besteconomy.settings.UserSettingsService;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -26,12 +27,14 @@ public class ScoreboardService implements Listener {
     private static final String OBJECTIVE_NAME = "besteconomy";
     private final JavaPlugin plugin;
     private final InternalPlaceholderService placeholderService;
+    private final UserSettingsService userSettingsService;
     private YamlConfiguration config;
     private BukkitTask updateTask;
 
-    public ScoreboardService(JavaPlugin plugin, InternalPlaceholderService placeholderService) {
+    public ScoreboardService(JavaPlugin plugin, InternalPlaceholderService placeholderService, UserSettingsService userSettingsService) {
         this.plugin = plugin;
         this.placeholderService = placeholderService;
+        this.userSettingsService = userSettingsService;
         reload();
     }
 
@@ -82,6 +85,10 @@ public class ScoreboardService implements Listener {
     private void update(Player player) {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         if (manager == null) {
+            return;
+        }
+        if (userSettingsService != null && !userSettingsService.isScoreboardEnabled(player.getUniqueId())) {
+            player.setScoreboard(manager.getMainScoreboard());
             return;
         }
         Scoreboard scoreboard = manager.getNewScoreboard();
