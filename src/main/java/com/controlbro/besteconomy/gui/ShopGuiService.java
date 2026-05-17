@@ -20,6 +20,7 @@ import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -270,6 +271,7 @@ public class ShopGuiService implements Listener {
                 economyManager.addBalance(player.getUniqueId(), money, total);
                 sellHolder.sold(true);
                 clearSellItems(event.getInventory());
+                playDing(player);
                 messageManager.send(player, "shop.sell-complete", Map.of("amount", NumberUtil.format(total)));
                 Bukkit.getScheduler().runTask(plugin, () -> openSell(player));
                 player.closeInventory();
@@ -330,7 +332,12 @@ public class ShopGuiService implements Listener {
         }
         economyManager.subtractBalance(player.getUniqueId(), money, total);
         player.getInventory().addItem(new ItemStack(shopItem.material(), amount)).values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
+        playDing(player);
         messageManager.send(player, "shop.purchase-success", Map.of("amount", String.valueOf(amount), "item", shopItem.material().name(), "price", NumberUtil.format(total)));
+    }
+
+    private void playDing(Player player) {
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0F, 1.2F);
     }
 
     private SectionConfig loadSection(String key, String filePath) {
