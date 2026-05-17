@@ -70,7 +70,7 @@ public class BestEconomyPlugin extends JavaPlugin {
 
         registerCommands();
         commandRegistrar.registerAll();
-        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager, messageManager), this);
         hookVault();
         startAutoSave();
         startShardRewardTask();
@@ -122,7 +122,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
         registerCommands();
         commandRegistrar.registerAll();
-        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager, messageManager), this);
         Bukkit.getOnlinePlayers().forEach(player -> economyManager.ensurePlayer(player.getUniqueId()));
         startAutoSave();
         startShardRewardTask();
