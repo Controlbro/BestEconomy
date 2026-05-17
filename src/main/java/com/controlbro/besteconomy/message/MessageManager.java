@@ -80,6 +80,10 @@ public class MessageManager {
         sender.sendMessage(getMessage(path, sender, placeholders));
     }
 
+    public boolean getBoolean(String path, boolean def) {
+        return messages.getBoolean(path, def);
+    }
+
     public void save() {
         if (messages instanceof YamlConfiguration yaml) {
             try {

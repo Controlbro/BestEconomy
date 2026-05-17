@@ -17,6 +17,9 @@ import com.controlbro.besteconomy.gui.ShopCommand;
 import com.controlbro.besteconomy.gui.ShopGuiService;
 import com.controlbro.besteconomy.gui.ValuesCommand;
 import com.controlbro.besteconomy.listener.PlayerJoinListener;
+import com.controlbro.besteconomy.market.GiveMarketSlotsCommand;
+import com.controlbro.besteconomy.market.MarketCommand;
+import com.controlbro.besteconomy.market.MarketService;
 import com.controlbro.besteconomy.message.MessageManager;
 import com.controlbro.besteconomy.placeholder.InternalPlaceholderService;
 import com.controlbro.besteconomy.shop.ShopAccountCommand;
@@ -49,6 +52,7 @@ public class BestEconomyPlugin extends JavaPlugin {
     private ShopAccountService shopAccountService;
     private ShopPendingCommandService shopPendingCommandService;
     private ShopGuiService shopGuiService;
+    private MarketService marketService;
     private ShopAccountCommand registeredShopAccountCommand;
     private ScoreboardService scoreboardService;
     private TabListService tabListService;
@@ -70,12 +74,13 @@ public class BestEconomyPlugin extends JavaPlugin {
 
         registerCommands();
         commandRegistrar.registerAll();
-        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager, messageManager), this);
         hookVault();
         startAutoSave();
         startShardRewardTask();
         startWebshopIntegration();
         startShopGui();
+        startMarket();
         startVisuals();
     }
 
@@ -90,6 +95,9 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (shopPendingCommandService != null) {
             shopPendingCommandService.stop();
         }
+        if (marketService != null) {
+            marketService.save();
+        }
         stopVisuals();
         economyManager.save();
         economyManager.shutdown();
@@ -100,6 +108,10 @@ public class BestEconomyPlugin extends JavaPlugin {
     public void reloadEverything() {
         if (shopPendingCommandService != null) {
             shopPendingCommandService.stop();
+        }
+        if (marketService != null) {
+            marketService.save();
+            marketService = null;
         }
         if (economyManager != null) {
             economyManager.save();
@@ -122,12 +134,13 @@ public class BestEconomyPlugin extends JavaPlugin {
         commandRegistrar = new CurrencyCommandRegistrar(this, currencyManager, commandHandler);
         registerCommands();
         commandRegistrar.registerAll();
-        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager), this);
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(economyManager, messageManager), this);
         Bukkit.getOnlinePlayers().forEach(player -> economyManager.ensurePlayer(player.getUniqueId()));
         startAutoSave();
         startShardRewardTask();
         startWebshopIntegration();
         startShopGui();
+        startMarket();
         startVisuals();
     }
 
@@ -218,6 +231,27 @@ public class BestEconomyPlugin extends JavaPlugin {
             ShopAdminCommand shopAdminCommand = new ShopAdminCommand(shopPendingCommandService, messageManager);
             shopAdmin.setExecutor(shopAdminCommand);
             shopAdmin.setTabCompleter(shopAdminCommand);
+        }
+    }
+
+    private void startMarket() {
+        if (marketService != null) {
+            HandlerList.unregisterAll(marketService);
+            marketService.save();
+        }
+        marketService = new MarketService(this, economyManager, currencyManager, messageManager);
+        Bukkit.getPluginManager().registerEvents(marketService, this);
+        PluginCommand market = getCommand("market");
+        if (market != null) {
+            MarketCommand marketCommand = new MarketCommand(marketService, messageManager);
+            market.setExecutor(marketCommand);
+            market.setTabCompleter(marketCommand);
+        }
+        PluginCommand giveMarketSlots = getCommand("givemarketslots");
+        if (giveMarketSlots != null) {
+            GiveMarketSlotsCommand giveMarketSlotsCommand = new GiveMarketSlotsCommand(marketService, messageManager);
+            giveMarketSlots.setExecutor(giveMarketSlotsCommand);
+            giveMarketSlots.setTabCompleter(giveMarketSlotsCommand);
         }
     }
 

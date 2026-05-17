@@ -44,6 +44,12 @@ commands:
   shopadmin:
     description: Webshop administration command.
     usage: /shopadmin processpending
+  market:
+    description: Open or manage the player market.
+    usage: /market [create|name|manage|search]
+  givemarketslots:
+    description: Give a player more market listing slots.
+    usage: /givemarketslots <player> <amount>
 
 permissions:
   besteconomy.eco.give:
@@ -91,6 +97,12 @@ permissions:
   shop.sell.use:
     description: Allows using the sell menu.
     default: true
+  besteconomy.market.use:
+    description: Allows using the player market.
+    default: true
+  besteconomy.market.giveslots:
+    description: Allows giving market listing slots.
+    default: op
 
   besteconomy.tab.prefix.owner:
     description: Shows the Owner prefix in the configured tab list.
