@@ -39,6 +39,8 @@ public class ShopGuiService implements Listener {
     private static final int[] ADD_SLOTS = {15, 24, 33};
     private static final int BUY_SLOT = 22;
     private static final int CANCEL_SLOT = 49;
+    private static final int DEFAULT_SELL_CANCEL_SLOT = 49;
+    private static final int DEFAULT_SELL_TOTAL_SLOT = 53;
     private static final String DEFAULT_FILL_ITEM = "BLACK_STAINED_GLASS_PANE";
     private static final String DEFAULT_SHARD_SHOP_URL = "https://shop.controlbro.com";
     private static final String DEFAULT_SHARD_SHOP_MESSAGE = "&5Shard Shop: &d{url}";
@@ -131,7 +133,7 @@ public class ShopGuiService implements Listener {
             return;
         }
         Inventory inventory = Bukkit.createInventory(new SellHolder(), validSize(sellConfig.getInt("size", 54)), color(sellConfig.getString("title", "&8Sell Items")));
-        updateSellButton(inventory);
+        updateSellControls(inventory);
         player.openInventory(inventory);
     }
 
@@ -190,8 +192,10 @@ public class ShopGuiService implements Listener {
             return;
         }
         InventoryHolder holder = event.getInventory().getHolder();
-        if (holder instanceof SellHolder sellHolder && !sellHolder.sold()) {
-            returnSellItems(player, event.getInventory());
+        if (holder instanceof SellHolder sellHolder) {
+            if (!sellHolder.handled()) {
+                confirmSell(player, event.getInventory(), sellHolder);
+            }
             return;
         }
         if (holder instanceof SectionHolder || holder instanceof BuyHolder) {
@@ -261,24 +265,23 @@ public class ShopGuiService implements Listener {
     }
 
     private void handleSellClick(InventoryClickEvent event, SellHolder sellHolder) {
-        int sellSlot = sellConfig.getInt("sell-button-slot", 49);
-        if (event.getRawSlot() == sellSlot) {
+        int cancelSlot = sellCancelSlot();
+        int totalSlot = sellTotalSlot();
+        if (event.getRawSlot() == cancelSlot) {
             event.setCancelled(true);
             Player player = (Player) event.getWhoClicked();
-            BigDecimal total = calculateSellTotal(event.getInventory());
-            if (total.compareTo(BigDecimal.ZERO) > 0) {
-                Currency money = getMoneyCurrency();
-                economyManager.addBalance(player.getUniqueId(), money, total);
-                sellHolder.sold(true);
-                clearSellItems(event.getInventory());
-                playDing(player);
-                messageManager.send(player, "shop.sell-complete", Map.of("amount", NumberUtil.format(total)));
-                Bukkit.getScheduler().runTask(plugin, () -> openSell(player));
-                player.closeInventory();
-            }
+            sellHolder.handled(true);
+            returnSellItems(player, event.getInventory());
+            clearSellInventory(event.getInventory());
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0F, 0.8F);
+            player.closeInventory();
             return;
         }
-        Bukkit.getScheduler().runTask(plugin, () -> updateSellButton(event.getInventory()));
+        if (event.getRawSlot() == totalSlot) {
+            event.setCancelled(true);
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> updateSellControls(event.getInventory()));
     }
 
     private void handleValuesClick(InventoryClickEvent event, Player player, int page) {
@@ -359,21 +362,43 @@ public class ShopGuiService implements Listener {
         return new SectionConfig(key, title, size, fillItem, items);
     }
 
-    private void updateSellButton(Inventory inventory) {
-        int slot = sellConfig.getInt("sell-button-slot", 49);
-        if (slot >= 0 && slot < inventory.getSize()) {
-            BigDecimal total = calculateSellTotal(inventory);
-            inventory.setItem(slot, item("LIME_STAINED_GLASS_PANE", "&aSell", List.of("&7You will receive &aMoney&7: &a$" + NumberUtil.format(total))));
+    private void updateSellControls(Inventory inventory) {
+        int cancelSlot = sellCancelSlot();
+        if (cancelSlot >= 0 && cancelSlot < inventory.getSize()) {
+            inventory.setItem(cancelSlot, item("RED_STAINED_GLASS_PANE", "&cCancel", List.of("&7Return your items without selling.", "&cClick to cancel.")));
         }
+        int totalSlot = sellTotalSlot();
+        if (totalSlot >= 0 && totalSlot < inventory.getSize()) {
+            BigDecimal total = calculateSellTotal(inventory);
+            inventory.setItem(totalSlot, item("LIME_STAINED_GLASS_PANE", "&aYou Get: $" + NumberUtil.format(total), List.of("&7Press &eESC &7to confirm selling.", "&7Unsellable items will be returned.")));
+        }
+    }
+
+    private void confirmSell(Player player, Inventory inventory, SellHolder sellHolder) {
+        BigDecimal total = calculateSellTotal(inventory);
+        sellHolder.handled(true);
+        if (total.compareTo(BigDecimal.ZERO) > 0) {
+            Currency money = getMoneyCurrency();
+            economyManager.addBalance(player.getUniqueId(), money, total);
+            removeSellableItems(inventory);
+            returnSellItems(player, inventory);
+            clearSellInventory(inventory);
+            playDing(player);
+            messageManager.send(player, "shop.sell-complete", Map.of("amount", NumberUtil.format(total)));
+            return;
+        }
+        returnSellItems(player, inventory);
+        clearSellInventory(inventory);
     }
 
     private BigDecimal calculateSellTotal(Inventory inventory) {
         BigDecimal total = BigDecimal.ZERO;
-        int sellSlot = sellConfig.getInt("sell-button-slot", 49);
+        int cancelSlot = sellCancelSlot();
+        int totalSlot = sellTotalSlot();
         ConfigurationSection values = sellConfig.getConfigurationSection("values");
         if (values == null) return total;
         for (int i = 0; i < inventory.getSize(); i++) {
-            if (i == sellSlot) continue;
+            if (i == cancelSlot || i == totalSlot) continue;
             ItemStack itemStack = inventory.getItem(i);
             if (itemStack == null || itemStack.getType().isAir()) continue;
             BigDecimal value = new BigDecimal(values.getString(itemStack.getType().name(), "0"));
@@ -382,22 +407,49 @@ public class ShopGuiService implements Listener {
         return total;
     }
 
-    private void clearSellItems(Inventory inventory) {
-        int sellSlot = sellConfig.getInt("sell-button-slot", 49);
+    private void removeSellableItems(Inventory inventory) {
+        int cancelSlot = sellCancelSlot();
+        int totalSlot = sellTotalSlot();
+        ConfigurationSection values = sellConfig.getConfigurationSection("values");
+        if (values == null) {
+            return;
+        }
         for (int i = 0; i < inventory.getSize(); i++) {
-            if (i != sellSlot) inventory.setItem(i, null);
+            if (i == cancelSlot || i == totalSlot) continue;
+            ItemStack itemStack = inventory.getItem(i);
+            if (itemStack == null || itemStack.getType().isAir()) continue;
+            BigDecimal value = new BigDecimal(values.getString(itemStack.getType().name(), "0"));
+            if (value.compareTo(BigDecimal.ZERO) > 0) {
+                inventory.setItem(i, null);
+            }
+        }
+    }
+
+    private void clearSellInventory(Inventory inventory) {
+        for (int i = 0; i < inventory.getSize(); i++) {
+            inventory.setItem(i, null);
         }
     }
 
     private void returnSellItems(Player player, Inventory inventory) {
-        int sellSlot = sellConfig.getInt("sell-button-slot", 49);
+        int cancelSlot = sellCancelSlot();
+        int totalSlot = sellTotalSlot();
         for (int i = 0; i < inventory.getSize(); i++) {
-            if (i == sellSlot) continue;
+            if (i == cancelSlot || i == totalSlot) continue;
             ItemStack itemStack = inventory.getItem(i);
             if (itemStack != null && !itemStack.getType().isAir()) {
                 player.getInventory().addItem(itemStack).values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
+                inventory.setItem(i, null);
             }
         }
+    }
+
+    private int sellCancelSlot() {
+        return sellConfig.getInt("sell-cancel-slot", sellConfig.getInt("sell-button-slot", DEFAULT_SELL_CANCEL_SLOT));
+    }
+
+    private int sellTotalSlot() {
+        return sellConfig.getInt("sell-total-slot", DEFAULT_SELL_TOTAL_SLOT);
     }
 
     private Currency getMoneyCurrency() {
@@ -524,10 +576,10 @@ public class ShopGuiService implements Listener {
     }
 
     private static final class SellHolder implements InventoryHolder {
-        private boolean sold;
+        private boolean handled;
         @Override public Inventory getInventory() { return null; }
-        private boolean sold() { return sold; }
-        private void sold(boolean sold) { this.sold = sold; }
+        private boolean handled() { return handled; }
+        private void handled(boolean handled) { this.handled = handled; }
     }
 
     private record ValuesHolder(int page) implements InventoryHolder {

@@ -97,6 +97,16 @@ mines:
   announce-win: '&6&lMines &8» &e{player} &awon &5✦{amount} &7(x{multiplier})&a!'
   announce-loss: '&6&lMines &8» &e{player} &chit TNT and lost &5✦{bet}&c!'
 
+blackjack:
+  usage: '&eUsage: /bj <shards bet>'
+  shards-missing: '&cThe Shards currency is not configured.'
+  started: '&aStarted Blackjack with a &5✦{bet} &abet. Hit or stand in the table!'
+  win: '&aYou won Blackjack! Hand &e{player} &avs dealer &e{dealer}&a. Payout: &5✦{payout}&a.'
+  busted: '&cBust! Your hand was &e{player}&c, so you lost &5✦{bet}&c.'
+  loss: '&cDealer wins with &e{dealer} &cagainst your &e{player}&c. You lost &5✦{bet}&c.'
+  push: '&ePush! Both hands were &6{player}&e. Your &5✦{payout} &ebet was returned.'
+  announce-win: '&6&lBlackjack &8» &e{player} &awon &5✦{amount} &7with a {hand}!'
+
 market:
   usage: '&eUsage: /market [create <name>|name <name>|manage|search <item>]'
   create-usage: '&eUsage: /market create <stall name>'

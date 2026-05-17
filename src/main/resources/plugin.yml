@@ -53,6 +53,10 @@ commands:
   mines:
     description: Play Mines with Shards.
     usage: /mines <amount>
+  bj:
+    description: Play Blackjack with Shards.
+    aliases: [blackjack]
+    usage: /bj <amount>
   settings:
     description: Open the server settings menu.
     usage: /settings
@@ -114,6 +118,9 @@ permissions:
     default: op
   besteconomy.mines.use:
     description: Allows playing Mines with Shards.
+    default: true
+  besteconomy.blackjack.use:
+    description: Allows playing Blackjack with Shards.
     default: true
   besteconomy.settings.use:
     description: Allows opening the settings menu.

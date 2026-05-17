@@ -45,3 +45,7 @@ webshop:
   pending-check-seconds: 60
   max-commands-per-check: 50
   api-key: "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET"
+
+blackjack:
+  blackjack-payout-multiplier: "2.5"
+  win-payout-multiplier: "2"

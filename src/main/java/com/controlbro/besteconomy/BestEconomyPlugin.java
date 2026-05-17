@@ -1,5 +1,7 @@
 package com.controlbro.besteconomy;
 
+import com.controlbro.besteconomy.blackjack.BlackjackCommand;
+import com.controlbro.besteconomy.blackjack.BlackjackService;
 import com.controlbro.besteconomy.command.BaltopCommand;
 import com.controlbro.besteconomy.command.BalanceCommand;
 import com.controlbro.besteconomy.command.CurrencyCommandHandler;
@@ -61,6 +63,7 @@ public class BestEconomyPlugin extends JavaPlugin {
     private ShopGuiService shopGuiService;
     private MarketService marketService;
     private MinesService minesService;
+    private BlackjackService blackjackService;
     private UserSettingsService userSettingsService;
     private SettingsMenuService settingsMenuService;
     private LockService lockService;
@@ -93,6 +96,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         startShopGui();
         startMarket();
         startMines();
+        startBlackjack();
         startSettings();
         startLocks();
         startVisuals();
@@ -114,6 +118,9 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
         if (minesService != null) {
             minesService.refundActiveGames();
+        }
+        if (blackjackService != null) {
+            blackjackService.refundActiveGames();
         }
         if (userSettingsService != null) {
             userSettingsService.save();
@@ -139,6 +146,10 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (minesService != null) {
             minesService.refundActiveGames();
             minesService = null;
+        }
+        if (blackjackService != null) {
+            blackjackService.refundActiveGames();
+            blackjackService = null;
         }
         if (userSettingsService != null) {
             userSettingsService.save();
@@ -178,6 +189,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         startShopGui();
         startMarket();
         startMines();
+        startBlackjack();
         startSettings();
         startLocks();
         startVisuals();
@@ -309,6 +321,21 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
     }
 
+    private void startBlackjack() {
+        if (blackjackService != null) {
+            HandlerList.unregisterAll(blackjackService);
+            blackjackService.refundActiveGames();
+        }
+        blackjackService = new BlackjackService(this, economyManager, currencyManager, messageManager);
+        Bukkit.getPluginManager().registerEvents(blackjackService, this);
+        PluginCommand blackjack = getCommand("bj");
+        if (blackjack != null) {
+            BlackjackCommand blackjackCommand = new BlackjackCommand(blackjackService, messageManager);
+            blackjack.setExecutor(blackjackCommand);
+            blackjack.setTabCompleter(blackjackCommand);
+        }
+    }
+
     private void startSettings() {
         if (settingsMenuService != null) {
             HandlerList.unregisterAll(settingsMenuService);
@@ -416,6 +443,8 @@ public class BestEconomyPlugin extends JavaPlugin {
         getConfig().addDefault("webshop.api-key", "CHANGE_THIS_TO_A_LONG_RANDOM_SECRET");
         getConfig().addDefault("mines.mine-count", 5);
         getConfig().addDefault("mines.multiplier-increase", "0.25");
+        getConfig().addDefault("blackjack.blackjack-payout-multiplier", "2.5");
+        getConfig().addDefault("blackjack.win-payout-multiplier", "2");
         getConfig().addDefault("settings.keep-inventory-default", false);
         getConfig().addDefault("settings.pvp-default", true);
         getConfig().options().copyDefaults(true);
