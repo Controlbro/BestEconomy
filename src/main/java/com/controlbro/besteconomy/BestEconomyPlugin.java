@@ -2,6 +2,8 @@ package com.controlbro.besteconomy;
 
 import com.controlbro.besteconomy.blackjack.BlackjackCommand;
 import com.controlbro.besteconomy.blackjack.BlackjackService;
+import com.controlbro.besteconomy.coinflip.CoinflipCommand;
+import com.controlbro.besteconomy.coinflip.CoinflipService;
 import com.controlbro.besteconomy.command.BaltopCommand;
 import com.controlbro.besteconomy.command.BalanceCommand;
 import com.controlbro.besteconomy.command.CurrencyCommandHandler;
@@ -64,6 +66,7 @@ public class BestEconomyPlugin extends JavaPlugin {
     private MarketService marketService;
     private MinesService minesService;
     private BlackjackService blackjackService;
+    private CoinflipService coinflipService;
     private UserSettingsService userSettingsService;
     private SettingsMenuService settingsMenuService;
     private LockService lockService;
@@ -97,6 +100,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         startMarket();
         startMines();
         startBlackjack();
+        startCoinflip();
         startSettings();
         startLocks();
         startVisuals();
@@ -121,6 +125,9 @@ public class BestEconomyPlugin extends JavaPlugin {
         }
         if (blackjackService != null) {
             blackjackService.refundActiveGames();
+        }
+        if (coinflipService != null) {
+            coinflipService.refundActiveGames();
         }
         if (userSettingsService != null) {
             userSettingsService.save();
@@ -150,6 +157,10 @@ public class BestEconomyPlugin extends JavaPlugin {
         if (blackjackService != null) {
             blackjackService.refundActiveGames();
             blackjackService = null;
+        }
+        if (coinflipService != null) {
+            coinflipService.refundActiveGames();
+            coinflipService = null;
         }
         if (userSettingsService != null) {
             userSettingsService.save();
@@ -190,6 +201,7 @@ public class BestEconomyPlugin extends JavaPlugin {
         startMarket();
         startMines();
         startBlackjack();
+        startCoinflip();
         startSettings();
         startLocks();
         startVisuals();
@@ -333,6 +345,21 @@ public class BestEconomyPlugin extends JavaPlugin {
             BlackjackCommand blackjackCommand = new BlackjackCommand(blackjackService, messageManager);
             blackjack.setExecutor(blackjackCommand);
             blackjack.setTabCompleter(blackjackCommand);
+        }
+    }
+
+    private void startCoinflip() {
+        if (coinflipService != null) {
+            HandlerList.unregisterAll(coinflipService);
+            coinflipService.refundActiveGames();
+        }
+        coinflipService = new CoinflipService(this, economyManager, currencyManager, messageManager);
+        Bukkit.getPluginManager().registerEvents(coinflipService, this);
+        PluginCommand coinflip = getCommand("coinflip");
+        if (coinflip != null) {
+            CoinflipCommand coinflipCommand = new CoinflipCommand(coinflipService, messageManager);
+            coinflip.setExecutor(coinflipCommand);
+            coinflip.setTabCompleter(coinflipCommand);
         }
     }
 
