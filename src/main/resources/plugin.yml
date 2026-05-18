@@ -57,6 +57,10 @@ commands:
     description: Play Blackjack with Shards.
     aliases: [blackjack]
     usage: /bj <amount>
+  coinflip:
+    description: Create or join Shards coinflips.
+    aliases: [cf]
+    usage: /coinflip <create|join|cancel|list>
   settings:
     description: Open the server settings menu.
     usage: /settings
@@ -121,6 +125,9 @@ permissions:
     default: true
   besteconomy.blackjack.use:
     description: Allows playing Blackjack with Shards.
+    default: true
+  besteconomy.coinflip.use:
+    description: Allows creating and joining coinflips with Shards.
     default: true
   besteconomy.settings.use:
     description: Allows opening the settings menu.
